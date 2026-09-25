@@ -120,17 +120,19 @@ struct IntentNotificationComposer {
 
     private func timingBody(for item: LaterItem, referenceDate: Date) -> String? {
         var parts: [String] = []
-        if let date = item.detectedDate {
-            parts.append(relativeDate(date, fallback: item.detectedDateText, referenceDate: referenceDate))
-        } else if let dateText = item.detectedDateText {
-            parts.append(dateText)
-        }
-        if let time = item.detectedTimeText,
-           !parts.contains(where: { $0.localizedCaseInsensitiveContains(time) }) {
-            if parts.isEmpty {
-                parts.append(time)
-            } else {
-                parts[0] += " at \(time)"
+        if item.meaningfulDateRole != nil {
+            if let date = item.detectedDate {
+                parts.append(relativeDate(date, fallback: item.detectedDateText, referenceDate: referenceDate))
+            } else if let dateText = item.detectedDateText {
+                parts.append(dateText)
+            }
+            if let time = item.detectedTimeText,
+               !parts.contains(where: { $0.localizedCaseInsensitiveContains(time) }) {
+                if parts.isEmpty {
+                    parts.append(time)
+                } else {
+                    parts[0] += " at \(time)"
+                }
             }
         }
         if let location = item.detectedLocation { parts.append(location) }
@@ -138,7 +140,7 @@ struct IntentNotificationComposer {
     }
 
     private func expirationBody(for item: LaterItem, referenceDate: Date) -> String? {
-        guard item.importantDateRole == .expiration else { return nil }
+        guard item.meaningfulDateRole == .expiration else { return nil }
         if let date = item.detectedDate {
             return "Expires \(relativeDate(date, fallback: item.detectedDateText, referenceDate: referenceDate).lowercased())"
         }

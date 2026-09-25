@@ -1,4 +1,3 @@
-import CryptoKit
 import SwiftData
 import UIKit
 
@@ -14,14 +13,22 @@ enum ScreenshotMatchKind: String {
     }
 }
 
-struct ScreenshotFingerprint {
-    let exactHash: String
-    let perceptualHash: String
-    let pixelWidth: Int
-    let pixelHeight: Int
-}
-
 struct DuplicateScreenshotMatcher {
+    func match(
+        _ fingerprint: ScreenshotFingerprint,
+        text: String,
+        against candidate: LaterItem
+    ) -> ScreenshotMatchKind? {
+        match(
+            exactHash: fingerprint.exactHash,
+            perceptualHash: fingerprint.perceptualHash,
+            text: text,
+            pixelWidth: fingerprint.pixelWidth,
+            pixelHeight: fingerprint.pixelHeight,
+            against: candidate
+        )
+    }
+
     func match(
         exactHash: String,
         perceptualHash: String,
@@ -83,63 +90,58 @@ struct DuplicateScreenshotMatcher {
     }
 }
 
-struct ImageFingerprintGenerator {
-    func fingerprint(_ image: UIImage) -> ScreenshotFingerprint? {
-        guard let exactBytes = normalizedRGBA(image, width: 64, height: 64),
-              let grayscale = normalizedGrayscale(image, width: 9, height: 8) else {
-            return nil
-        }
+enum ScreenshotIngestionRoute {
+    case share
+    case photoLibrary
+}
 
-        var differenceHash: UInt64 = 0
-        for row in 0..<8 {
-            for column in 0..<8 {
-                differenceHash <<= 1
-                let left = grayscale[row * 9 + column]
-                let right = grayscale[row * 9 + column + 1]
-                if left > right { differenceHash |= 1 }
-            }
-        }
+/// Share and Photos are two doors into the same screenshot, not two screenshots.
+/// Before either route creates an item it asks whether the other route already
+/// created one for these exact pixels, so the result is a single canonical item
+/// that carries both identities instead of a pair grouped as duplicates.
+@MainActor
+struct CanonicalItemResolver {
+    let context: ModelContext
 
-        return ScreenshotFingerprint(
-            exactHash: SHA256.hash(data: Data(exactBytes)).map { String(format: "%02x", $0) }.joined(),
-            perceptualHash: String(format: "%016llx", differenceHash),
-            pixelWidth: Int(image.size.width * image.scale),
-            pixelHeight: Int(image.size.height * image.scale)
-        )
+    func canonicalItem(
+        for fingerprint: ScreenshotFingerprint,
+        arrivingFrom route: ScreenshotIngestionRoute
+    ) throws -> LaterItem? {
+        try context.fetch(FetchDescriptor<LaterItem>()).first { candidate in
+            candidate.duplicateOfItemID == nil
+                && isAwaiting(route, candidate)
+                && isSameCapture(fingerprint, candidate)
+        }
     }
 
-    private func normalizedRGBA(_ image: UIImage, width: Int, height: Int) -> [UInt8]? {
-        guard let cgImage = image.cgImage else { return nil }
-        var bytes = [UInt8](repeating: 0, count: width * height * 4)
-        guard let context = CGContext(
-            data: &bytes,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
-        context.interpolationQuality = .medium
-        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-        return bytes
+    /// Only an item that is missing the identity this route supplies can adopt it.
+    private func isAwaiting(_ route: ScreenshotIngestionRoute, _ item: LaterItem) -> Bool {
+        switch route {
+        case .photoLibrary:
+            item.sharedImageFilename != nil && !item.hasPhotoLibraryAsset
+        case .share:
+            item.sharedImageFilename == nil && item.hasPhotoLibraryAsset
+        }
     }
 
-    private func normalizedGrayscale(_ image: UIImage, width: Int, height: Int) -> [UInt8]? {
-        guard let cgImage = image.cgImage else { return nil }
-        var bytes = [UInt8](repeating: 0, count: width * height)
-        guard let context = CGContext(
-            data: &bytes,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: width,
-            space: CGColorSpaceCreateDeviceGray(),
-            bitmapInfo: CGImageAlphaInfo.none.rawValue
-        ) else { return nil }
-        context.interpolationQuality = .medium
-        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-        return bytes
+    /// Deliberately stricter than duplicate detection. A merge silently rewrites an
+    /// existing item, so it must mean "these are literally the same capture".
+    private func isSameCapture(
+        _ fingerprint: ScreenshotFingerprint,
+        _ candidate: LaterItem
+    ) -> Bool {
+        guard let candidateExact = candidate.imageContentHash else { return false }
+        if fingerprint.exactHash == candidateExact { return true }
+
+        // A transcoded share payload can decode to near-identical pixels. Require the
+        // original dimensions to agree exactly and the perceptual hashes to be all
+        // but identical before treating it as the same capture.
+        guard let candidatePerceptual = candidate.perceptualHash,
+              candidate.sourcePixelWidth == fingerprint.pixelWidth,
+              candidate.sourcePixelHeight == fingerprint.pixelHeight,
+              let first = UInt64(fingerprint.perceptualHash, radix: 16),
+              let second = UInt64(candidatePerceptual, radix: 16) else { return false }
+        return (first ^ second).nonzeroBitCount <= 2
     }
 }
 
@@ -149,6 +151,10 @@ struct DuplicateScreenshotDetector {
 
     func analyze(item: LaterItem, image: UIImage, text: String) throws {
         guard let fingerprint = ImageFingerprintGenerator().fingerprint(image) else { return }
+        try analyze(item: item, fingerprint: fingerprint, text: text)
+    }
+
+    func analyze(item: LaterItem, fingerprint: ScreenshotFingerprint, text: String) throws {
         item.imageContentHash = fingerprint.exactHash
         item.perceptualHash = fingerprint.perceptualHash
         item.sourcePixelWidth = fingerprint.pixelWidth
@@ -174,11 +180,8 @@ struct DuplicateScreenshotDetector {
         var bestMatch: (item: LaterItem, kind: ScreenshotMatchKind)?
         for candidate in candidates {
             guard let kind = matcher.match(
-                exactHash: fingerprint.exactHash,
-                perceptualHash: fingerprint.perceptualHash,
+                fingerprint,
                 text: text,
-                pixelWidth: fingerprint.pixelWidth,
-                pixelHeight: fingerprint.pixelHeight,
                 against: candidate
             ) else { continue }
             bestMatch = (candidate, kind)

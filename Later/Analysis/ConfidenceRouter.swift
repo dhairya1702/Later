@@ -7,7 +7,7 @@ struct ClassificationConfig {
     static let minimumKindConfidence = 0.60
     static let ruleWeight = 0.65
     static let semanticWeight = 0.35
-    static let classifierVersion = 13
+    static let classifierVersion = 14
 }
 
 struct ConfidenceRouter {

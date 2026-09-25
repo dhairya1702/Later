@@ -46,6 +46,13 @@ DerivedData/
 *.cer
 .env
 .env.*
+!.env.example
+
+# Local vision spike inputs and outputs may contain private screenshots.
+tools/vision-spike/screenshots/*
+!tools/vision-spike/screenshots/.gitkeep
+tools/vision-spike/results/*
+!tools/vision-spike/results/.gitkeep
 
 # Symbolication related
 app.*.symbols

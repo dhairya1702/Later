@@ -72,15 +72,15 @@ struct OnboardingView: View {
                 OnboardingPageView(
                     symbol: "sparkles.rectangle.stack",
                     title: "The important parts, already pulled out.",
-                    message: "Dates, times, prices, coupon codes, and locations written in the screenshot stay easy to find.",
+                    message: "Dates, times, prices, coupon codes, and locations in the screenshot stay easy to find.",
                     illustration: .facts
                 )
                 .tag(1)
 
                 OnboardingPageView(
                     symbol: "lock.shield.fill",
-                    title: "Private by design.",
-                    message: "Everything is processed on this device. Screenshots are not uploaded, and Later never uses GPS location.",
+                    title: "Your screenshots stay under your control.",
+                    message: "During this local test, screenshots go to your Mac for AI analysis. Later never uses GPS location.",
                     illustration: .privacy
                 )
                 .tag(2)
@@ -159,7 +159,7 @@ struct OnboardingView: View {
     private var privacyPoints: some View {
         VStack(alignment: .leading, spacing: 14) {
             OnboardingCheck(text: "Only photos you allow are available to Later")
-            OnboardingCheck(text: "Everything stays private on your iPhone")
+            OnboardingCheck(text: "Analysis runs through your Mac during this local test")
             OnboardingCheck(text: "You can change access anytime in Settings")
         }
         .padding(20)

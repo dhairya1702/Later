@@ -25,8 +25,21 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
+	<key>LaterVisionBaseURL</key>
+	<string>http://10.0.0.198:8787</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Later connects to your Mac on the local network to analyze screenshots during development.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Later adds reminders you choose from saved screenshots.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Later creates calendar events you confirm from saved screenshots.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Later needs access to find your screenshots and read their text privately on this iPhone.</string>
+	<string>Later needs access to find screenshots you choose and organize them with AI.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

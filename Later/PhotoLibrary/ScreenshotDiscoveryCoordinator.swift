@@ -11,9 +11,9 @@ enum ScreenshotDiscoverySource {
 
     var batchLimit: Int {
         switch self {
-        case .initialScan: Int.max
+        case .initialScan: 10
         case .backgroundRefresh: 10
-        case .foreground, .photoLibraryChange, .backgroundProcessing: 50
+        case .foreground, .photoLibraryChange, .backgroundProcessing: 10
         }
     }
 }

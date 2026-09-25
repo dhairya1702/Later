@@ -49,9 +49,9 @@ struct HomeView: View {
                     }
 
                     NavigationLink {
-                        ScreenshotGridView()
+                        SettingsView()
                     } label: {
-                        Label("Gallery", systemImage: "photo.stack")
+                        Label("Settings", systemImage: "gearshape")
                     }
                 }
                 ToolbarItem(placement: .principal) {
@@ -67,10 +67,21 @@ struct HomeView: View {
                 }
             }
         }
-        .task { await catchUp() }
+        .task {
+            await catchUp()
+            await openPendingNotificationWhenActive()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .laterOpenItem)) { _ in
+            Task { await openPendingNotificationWhenActive() }
+        }
         .onChange(of: scenePhase) { _, phase in
             discoveryCoordinator.setActive(phase == .active)
-            if phase == .active { Task { await catchUp() } }
+            if phase == .active {
+                Task {
+                    await catchUp()
+                    await openPendingNotificationWhenActive()
+                }
+            }
         }
     }
 
@@ -147,6 +158,22 @@ struct HomeView: View {
         Task { await NotificationManager.shared.reconcile() }
     }
 
+    private func openPendingNotification() {
+        guard let itemID = NotificationManager.shared.consumePendingOpenedItemID() else { return }
+        let id = itemID
+        var descriptor = FetchDescriptor<LaterItem>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        selectedItem = try? modelContext.fetch(descriptor).first
+    }
+
+    @MainActor
+    private func openPendingNotificationWhenActive() async {
+        guard scenePhase == .active else { return }
+        await Task.yield()
+        guard scenePhase == .active else { return }
+        openPendingNotification()
+    }
+
     private var permissionPrompt: some View {
         ContentUnavailableView {
             Text("You screenshot things for a reason.")
@@ -174,10 +201,41 @@ struct HomeView: View {
 
     @MainActor
     private func catchUp() async {
+        await ShareInboxImporter(context: modelContext).importPending()
         authorizationStatus = PhotoAuthorizationService().status
         guard authorizationStatus == .authorized || authorizationStatus == .limited else { return }
         discoveryCoordinator.setActive(true)
         await discoveryCoordinator.discover(.foreground)
+    }
+}
+
+private struct SettingsView: View {
+    @AppStorage("appearancePreference") private var appearance = AppearancePreference.system
+
+    var body: some View {
+        Form {
+            Section("Appearance") {
+                Picker("Appearance", selection: $appearance) {
+                    ForEach(AppearancePreference.allCases) { preference in
+                        Text(preference.displayName).tag(preference)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+
+            Section("About") {
+                LabeledContent("App", value: "Later")
+                LabeledContent("Version", value: appVersion)
+            }
+        }
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var appVersion: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        return version ?? "1.0"
     }
 }
 
@@ -414,7 +472,10 @@ private struct LaterItemRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            SourceThumbnail(identifier: item.screenshotAssetIdentifier)
+            SourceThumbnail(
+                identifier: item.photoLibraryAssetIdentifier,
+                sharedImageFilename: item.sharedImageFilename
+            )
 
             VStack(alignment: .leading, spacing: 4) {
                 if item.kind != .other || item.isOffer == true {
@@ -447,9 +508,6 @@ private struct LaterItemRow: View {
                         .font(.caption2.bold())
                         .foregroundStyle(.purple)
                 }
-                Text(item.createdAt, format: .relative(presentation: .named))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             Spacer(minLength: 0)
@@ -496,18 +554,22 @@ private struct LaterItemRow: View {
         if let discount = item.discountText { facts.append(discount) }
         if let code = item.couponCode { facts.append("Code: \(code)") }
 
-        let dateAndTime = [item.detectedDateText, item.detectedTimeText]
-            .compactMap { $0 }
-            .joined(separator: " at ")
-        if !dateAndTime.isEmpty {
-            let prefix = switch item.importantDateRole {
-            case .expiration: "Expires "
-            case .deadline: "Due "
-            case .delivery: "Arrives "
-            case .reservation: "Reserved "
-            default: ""
+        if let role = item.meaningfulDateRole {
+            let dateAndTime = [item.detectedDateText, item.detectedTimeText]
+                .compactMap { $0 }
+                .joined(separator: " at ")
+            if !dateAndTime.isEmpty {
+                let prefix = switch role {
+                case .expiration: "Expires "
+                case .deadline: "Due "
+                case .delivery: "Arrives "
+                case .reservation: "Reserved "
+                case .travel: "Travel "
+                case .event: "Event "
+                case .unspecified: ""
+                }
+                facts.append(prefix + dateAndTime)
             }
-            facts.append(prefix + dateAndTime)
         }
         if let location = item.detectedLocation { facts.append(location) }
         return facts.isEmpty ? nil : facts.prefix(3).joined(separator: " · ")
@@ -516,6 +578,7 @@ private struct LaterItemRow: View {
 
 private struct SourceThumbnail: View {
     let identifier: String?
+    let sharedImageFilename: String?
     @State private var image: UIImage?
 
     var body: some View {
@@ -530,6 +593,11 @@ private struct SourceThumbnail: View {
         .frame(width: 52, height: 68)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .task(id: identifier) {
+            if let sharedImageFilename {
+                image = UIImage(contentsOfFile: ShareInboxStore()
+                    .imageURL(filename: sharedImageFilename).path)
+                return
+            }
             guard let identifier,
                   let asset = PHAsset.fetchAssets(
                     withLocalIdentifiers: [identifier],

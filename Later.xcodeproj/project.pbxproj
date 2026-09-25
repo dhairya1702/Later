@@ -43,6 +43,16 @@
 		A00000000000000000000123 /* DuplicateScreenshotDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000226 /* DuplicateScreenshotDetector.swift */; };
 		A00000000000000000000124 /* ScreenshotSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000227 /* ScreenshotSurface.swift */; };
 		A00000000000000000000125 /* ScreenSourceDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000228 /* ScreenSourceDetector.swift */; };
+		A00000000000000000000126 /* VisionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000229 /* VisionBridge.swift */; };
+		A00000000000000000000127 /* ShareInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000022A /* ShareInbox.swift */; };
+		A0000000000000000000012D /* ImageFingerprint.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000231 /* ImageFingerprint.swift */; };
+		A0000000000000000000012E /* ImageFingerprint.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000231 /* ImageFingerprint.swift */; };
+		A00000000000000000000128 /* ShareInboxImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000022B /* ShareInboxImporter.swift */; };
+		A00000000000000000000129 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000022C /* ShareViewController.swift */; };
+		A0000000000000000000012A /* VisionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000229 /* VisionBridge.swift */; };
+		A0000000000000000000012B /* ShareInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000022A /* ShareInbox.swift */; };
+		A0000000000000000000012C /* LaterShareExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A0000000000000000000022F /* LaterShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A0000000000000000000012F /* LaterAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000232 /* LaterAppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,7 +63,26 @@
 			remoteGlobalIDString = A00000000000000000000501;
 			remoteInfo = Later;
 		};
+		A00000000000000000000302 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000401 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A00000000000000000000503;
+			remoteInfo = LaterShareExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A00000000000000000000D01 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (A0000000000000000000012C /* LaterShareExtension.appex in Embed App Extensions */,);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A00000000000000000000201 /* LaterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaterApp.swift; sourceTree = "<group>"; };
@@ -96,11 +125,22 @@
 		A00000000000000000000226 /* DuplicateScreenshotDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateScreenshotDetector.swift; sourceTree = "<group>"; };
 		A00000000000000000000227 /* ScreenshotSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotSurface.swift; sourceTree = "<group>"; };
 		A00000000000000000000228 /* ScreenSourceDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenSourceDetector.swift; sourceTree = "<group>"; };
+		A00000000000000000000229 /* VisionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionBridge.swift; sourceTree = "<group>"; };
+		A0000000000000000000022A /* ShareInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareInbox.swift; sourceTree = "<group>"; };
+		A00000000000000000000231 /* ImageFingerprint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageFingerprint.swift; sourceTree = "<group>"; };
+		A0000000000000000000022B /* ShareInboxImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareInboxImporter.swift; sourceTree = "<group>"; };
+		A0000000000000000000022C /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		A0000000000000000000022D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A0000000000000000000022E /* LaterShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LaterShareExtension.entitlements; sourceTree = "<group>"; };
+		A0000000000000000000022F /* LaterShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LaterShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000230 /* Later.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Later.entitlements; sourceTree = "<group>"; };
+		A00000000000000000000232 /* LaterAppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaterAppDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A00000000000000000000601 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A00000000000000000000602 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A00000000000000000000603 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -108,6 +148,7 @@
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000702 /* Later */,
+				A0000000000000000000070D /* LaterShareExtension */,
 				A0000000000000000000070A /* LaterTests */,
 				A0000000000000000000070B /* Products */,
 			);
@@ -123,28 +164,31 @@
 				A00000000000000000000707 /* Persistence */,
 				A00000000000000000000708 /* Features */,
 				A00000000000000000000709 /* Resources */,
+				A0000000000000000000070C /* Shared */,
 			);
 			path = Later;
 			sourceTree = "<group>";
 		};
-		A00000000000000000000703 /* App */ = {isa = PBXGroup; children = (A00000000000000000000201 /* LaterApp.swift */, A0000000000000000000021B /* BackgroundTaskManager.swift */, A00000000000000000000224 /* NotificationManager.swift */,); path = App; sourceTree = "<group>"; };
+		A00000000000000000000703 /* App */ = {isa = PBXGroup; children = (A00000000000000000000201 /* LaterApp.swift */, A00000000000000000000232 /* LaterAppDelegate.swift */, A0000000000000000000021B /* BackgroundTaskManager.swift */, A00000000000000000000224 /* NotificationManager.swift */,); path = App; sourceTree = "<group>"; };
 		A00000000000000000000704 /* Models */ = {isa = PBXGroup; children = (A00000000000000000000202 /* ScreenshotRecord.swift */, A00000000000000000000214 /* LaterItem.swift */, A0000000000000000000020E /* LaterCategory.swift */, A00000000000000000000219 /* LaterKind.swift */, A0000000000000000000020F /* ClassificationResult.swift */, A00000000000000000000227 /* ScreenshotSurface.swift */,); path = Models; sourceTree = "<group>"; };
 		A00000000000000000000705 /* PhotoLibrary */ = {isa = PBXGroup; children = (A00000000000000000000203 /* PhotoAuthorizationService.swift */, A00000000000000000000204 /* ScreenshotFetcher.swift */, A00000000000000000000205 /* ImageLoader.swift */, A0000000000000000000021A /* ScreenshotDiscoveryCoordinator.swift */,); path = PhotoLibrary; sourceTree = "<group>"; };
 		A00000000000000000000706 /* Analysis */ = {isa = PBXGroup; children = (A00000000000000000000206 /* OCRService.swift */, A00000000000000000000210 /* TextNormalizer.swift */, A00000000000000000000211 /* FeatureExtractor.swift */, A0000000000000000000021D /* ImportantFactExtractor.swift */, A0000000000000000000021E /* VisualImageClassifier.swift */, A00000000000000000000212 /* ConfidenceRouter.swift */, A00000000000000000000213 /* ScreenshotClassifier.swift */, A00000000000000000000228 /* ScreenSourceDetector.swift */, A00000000000000000000215 /* TitleExtractor.swift */, A00000000000000000000225 /* IntentNotificationComposer.swift */, A00000000000000000000226 /* DuplicateScreenshotDetector.swift */, A00000000000000000000217 /* ScreenshotProcessingService.swift */,); path = Analysis; sourceTree = "<group>"; };
-		A00000000000000000000707 /* Persistence */ = {isa = PBXGroup; children = (A00000000000000000000207 /* ScreenshotRepository.swift */, A00000000000000000000216 /* ItemRepository.swift */,); path = Persistence; sourceTree = "<group>"; };
+		A00000000000000000000707 /* Persistence */ = {isa = PBXGroup; children = (A00000000000000000000207 /* ScreenshotRepository.swift */, A00000000000000000000216 /* ItemRepository.swift */, A0000000000000000000022B /* ShareInboxImporter.swift */,); path = Persistence; sourceTree = "<group>"; };
 		A00000000000000000000708 /* Features */ = {isa = PBXGroup; children = (A00000000000000000000218 /* HomeView.swift */, A00000000000000000000223 /* LaterItemDetailView.swift */, A00000000000000000000208 /* ScreenshotGridView.swift */, A00000000000000000000209 /* ScreenshotDetailView.swift */, A0000000000000000000021F /* OnboardingState.swift */, A00000000000000000000220 /* OnboardingView.swift */, A00000000000000000000221 /* OnboardingPageView.swift */, A00000000000000000000222 /* InitialScanView.swift */,); path = Features; sourceTree = "<group>"; };
-		A00000000000000000000709 /* Resources */ = {isa = PBXGroup; children = (A0000000000000000000020A /* Assets.xcassets */, A0000000000000000000021C /* Info.plist */,); path = Resources; sourceTree = "<group>"; };
+		A00000000000000000000709 /* Resources */ = {isa = PBXGroup; children = (A0000000000000000000020A /* Assets.xcassets */, A0000000000000000000021C /* Info.plist */, A00000000000000000000230 /* Later.entitlements */,); path = Resources; sourceTree = "<group>"; };
 		A0000000000000000000070A /* LaterTests */ = {isa = PBXGroup; children = (A0000000000000000000020B /* ScreenshotRecordTests.swift */,); path = LaterTests; sourceTree = "<group>"; };
-		A0000000000000000000070B /* Products */ = {isa = PBXGroup; children = (A0000000000000000000020C /* Later.app */, A0000000000000000000020D /* LaterTests.xctest */,); name = Products; sourceTree = "<group>"; };
+		A0000000000000000000070B /* Products */ = {isa = PBXGroup; children = (A0000000000000000000020C /* Later.app */, A0000000000000000000020D /* LaterTests.xctest */, A0000000000000000000022F /* LaterShareExtension.appex */,); name = Products; sourceTree = "<group>"; };
+		A0000000000000000000070C /* Shared */ = {isa = PBXGroup; children = (A00000000000000000000229 /* VisionBridge.swift */, A0000000000000000000022A /* ShareInbox.swift */, A00000000000000000000231 /* ImageFingerprint.swift */,); path = Shared; sourceTree = "<group>"; };
+		A0000000000000000000070D /* LaterShareExtension */ = {isa = PBXGroup; children = (A0000000000000000000022C /* ShareViewController.swift */, A0000000000000000000022D /* Info.plist */, A0000000000000000000022E /* LaterShareExtension.entitlements */,); path = LaterShareExtension; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
 		A00000000000000000000501 /* Later */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A00000000000000000000A02 /* Build configuration list for PBXNativeTarget "Later" */;
-			buildPhases = (A00000000000000000000801 /* Sources */, A00000000000000000000601 /* Frameworks */, A00000000000000000000901 /* Resources */,);
+			buildPhases = (A00000000000000000000801 /* Sources */, A00000000000000000000601 /* Frameworks */, A00000000000000000000901 /* Resources */, A00000000000000000000D01 /* Embed App Extensions */,);
 			buildRules = ();
-			dependencies = ();
+			dependencies = (A00000000000000000000B02 /* PBXTargetDependency */,);
 			name = Later;
 			productName = Later;
 			productReference = A0000000000000000000020C /* Later.app */;
@@ -161,12 +205,23 @@
 			productReference = A0000000000000000000020D /* LaterTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		A00000000000000000000503 /* LaterShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000A04 /* Build configuration list for PBXNativeTarget "LaterShareExtension" */;
+			buildPhases = (A00000000000000000000803 /* Sources */, A00000000000000000000603 /* Frameworks */, A00000000000000000000903 /* Resources */,);
+			buildRules = ();
+			dependencies = ();
+			name = LaterShareExtension;
+			productName = LaterShareExtension;
+			productReference = A0000000000000000000022F /* LaterShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		A00000000000000000000401 /* Project object */ = {
 			isa = PBXProject;
-			attributes = {BuildIndependentTargetsInParallel = YES; LastSwiftUpdateCheck = 2610; LastUpgradeCheck = 2610; TargetAttributes = {A00000000000000000000501 = {CreatedOnToolsVersion = 26.1;}; A00000000000000000000502 = {CreatedOnToolsVersion = 26.1; TestTargetID = A00000000000000000000501;};};};
+			attributes = {BuildIndependentTargetsInParallel = YES; LastSwiftUpdateCheck = 2610; LastUpgradeCheck = 2610; TargetAttributes = {A00000000000000000000501 = {CreatedOnToolsVersion = 26.1;}; A00000000000000000000502 = {CreatedOnToolsVersion = 26.1; TestTargetID = A00000000000000000000501;}; A00000000000000000000503 = {CreatedOnToolsVersion = 26.1;};};};
 			buildConfigurationList = A00000000000000000000A01 /* Build configuration list for PBXProject "Later" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
@@ -176,37 +231,43 @@
 			productRefGroup = A0000000000000000000070B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (A00000000000000000000501 /* Later */, A00000000000000000000502 /* LaterTests */,);
+			targets = (A00000000000000000000501 /* Later */, A00000000000000000000502 /* LaterTests */, A00000000000000000000503 /* LaterShareExtension */,);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		A00000000000000000000901 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000010A /* Assets.xcassets in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
 		A00000000000000000000902 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A00000000000000000000903 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A00000000000000000000801 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000101, A00000000000000000000102, A00000000000000000000103, A00000000000000000000104, A00000000000000000000105, A00000000000000000000106, A00000000000000000000107, A00000000000000000000108, A00000000000000000000109, A0000000000000000000010C, A0000000000000000000010D, A0000000000000000000010E, A0000000000000000000010F, A00000000000000000000110, A00000000000000000000111, A00000000000000000000112, A00000000000000000000113, A00000000000000000000114, A00000000000000000000115, A00000000000000000000116, A00000000000000000000117, A00000000000000000000118, A00000000000000000000119, A0000000000000000000011A, A0000000000000000000011B, A0000000000000000000011C, A0000000000000000000011D, A0000000000000000000011E, A0000000000000000000011F, A00000000000000000000120, A00000000000000000000121, A00000000000000000000122, A00000000000000000000123, A00000000000000000000124, A00000000000000000000125,); runOnlyForDeploymentPostprocessing = 0; };
+		A00000000000000000000801 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000101, A00000000000000000000102, A00000000000000000000103, A00000000000000000000104, A00000000000000000000105, A00000000000000000000106, A00000000000000000000107, A00000000000000000000108, A00000000000000000000109, A0000000000000000000010C, A0000000000000000000010D, A0000000000000000000010E, A0000000000000000000010F, A00000000000000000000110, A00000000000000000000111, A00000000000000000000112, A00000000000000000000113, A00000000000000000000114, A00000000000000000000115, A00000000000000000000116, A00000000000000000000117, A00000000000000000000118, A00000000000000000000119, A0000000000000000000011A, A0000000000000000000011B, A0000000000000000000011C, A0000000000000000000011D, A0000000000000000000011E, A0000000000000000000011F, A00000000000000000000120, A00000000000000000000121, A00000000000000000000122, A00000000000000000000123, A00000000000000000000124, A00000000000000000000125, A00000000000000000000126, A00000000000000000000127, A00000000000000000000128, A0000000000000000000012D, A0000000000000000000012F,); runOnlyForDeploymentPostprocessing = 0; };
 		A00000000000000000000802 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000010B /* ScreenshotRecordTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+		A00000000000000000000803 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000129 /* ShareViewController.swift in Sources */, A0000000000000000000012A /* VisionBridge.swift in Sources */, A0000000000000000000012B /* ShareInbox.swift in Sources */, A0000000000000000000012E /* ImageFingerprint.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		A00000000000000000000B01 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = A00000000000000000000501 /* Later */; targetProxy = A00000000000000000000301 /* PBXContainerItemProxy */; };
+		A00000000000000000000B02 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = A00000000000000000000503 /* LaterShareExtension */; targetProxy = A00000000000000000000302 /* PBXContainerItemProxy */; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A00000000000000000000C01 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_TESTABILITY = YES; GCC_C_LANGUAGE_STANDARD = gnu17; GCC_OPTIMIZATION_LEVEL = 0; IPHONEOS_DEPLOYMENT_TARGET = 18.0; ONLY_ACTIVE_ARCH = YES; SDKROOT = iphoneos; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_VERSION = 5.0;}; name = Debug; };
 		A00000000000000000000C02 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 18.0; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O"; SWIFT_VERSION = 5.0; VALIDATE_PRODUCT = YES;}; name = Release; };
-		A00000000000000000000C03 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_ASSET_PATHS = ""; DEVELOPMENT_TEAM = X34H6AHCUU; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Later/Resources/Info.plist; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.Later; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; TARGETED_DEVICE_FAMILY = "1,2";}; name = Debug; };
-		A00000000000000000000C04 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = X34H6AHCUU; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Later/Resources/Info.plist; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.Later; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; TARGETED_DEVICE_FAMILY = "1,2";}; name = Release; };
+		A00000000000000000000C03 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_ENTITLEMENTS = Later/Resources/Later.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_ASSET_PATHS = ""; DEVELOPMENT_TEAM = X34H6AHCUU; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Later/Resources/Info.plist; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.Later; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; TARGETED_DEVICE_FAMILY = "1,2";}; name = Debug; };
+		A00000000000000000000C04 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_ENTITLEMENTS = Later/Resources/Later.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = X34H6AHCUU; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Later/Resources/Info.plist; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.Later; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; TARGETED_DEVICE_FAMILY = "1,2";}; name = Release; };
 		A00000000000000000000C05 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 18.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.LaterTests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Later.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Later";}; name = Debug; };
 		A00000000000000000000C06 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 18.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.LaterTests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Later.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Later";}; name = Release; };
+		A00000000000000000000C07 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = YES; CODE_SIGN_ENTITLEMENTS = LaterShareExtension/LaterShareExtension.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = X34H6AHCUU; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = LaterShareExtension/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 18.0; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.Later.ShareExtension; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = YES; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2";}; name = Debug; };
+		A00000000000000000000C08 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = YES; CODE_SIGN_ENTITLEMENTS = LaterShareExtension/LaterShareExtension.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = X34H6AHCUU; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = LaterShareExtension/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 18.0; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.Later.ShareExtension; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = YES; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2";}; name = Release; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
 		A00000000000000000000A01 /* Build configuration list for PBXProject "Later" */ = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000C01 /* Debug */, A00000000000000000000C02 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A00000000000000000000A02 /* Build configuration list for PBXNativeTarget "Later" */ = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000C03 /* Debug */, A00000000000000000000C04 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A00000000000000000000A03 /* Build configuration list for PBXNativeTarget "LaterTests" */ = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000C05 /* Debug */, A00000000000000000000C06 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A00000000000000000000A04 /* Build configuration list for PBXNativeTarget "LaterShareExtension" */ = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000C07 /* Debug */, A00000000000000000000C08 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = A00000000000000000000401 /* Project object */;

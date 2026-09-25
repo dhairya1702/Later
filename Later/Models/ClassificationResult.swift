@@ -43,7 +43,70 @@ struct CategoryClassificationScore: Codable, Hashable, Identifiable {
     var id: LaterCategory { category }
 }
 
+enum ActionableEntityType: String, Codable, Hashable {
+    case phone
+    case email
+    case url
+    case address
+    case couponCode
+}
+
+struct ActionableEntity: Codable, Hashable, Identifiable {
+    let type: ActionableEntityType
+    let value: String
+    let confidence: Double
+    let evidence: String
+
+    var id: String { "\(type.rawValue):\(value)" }
+}
+
+enum DetectedMediaType: String, Codable, Hashable {
+    case song
+    case podcast
+}
+
+enum MediaSourceService: String, Codable, Hashable {
+    case appleMusic
+    case spotify
+    case youtube
+    case other
+    case unknown
+}
+
+struct DetectedMedia: Codable, Hashable {
+    let type: DetectedMediaType
+    let title: String
+    let creator: String
+    let sourceService: MediaSourceService
+    let confidence: Double
+    let evidence: [String]
+}
+
+struct DetectedProductDetails: Codable, Hashable {
+    let name: String
+    let brand: String?
+    let model: String?
+    let variant: String?
+    let currentPrice: String?
+    let originalPrice: String?
+    let discount: String?
+    let seller: String?
+    let condition: String?
+    let negotiable: String?
+    let rating: String?
+    let reviewCount: String?
+    let delivery: String?
+    let availability: String?
+    let fulfillment: String?
+    let location: String?
+    let confidence: Double
+    let evidence: [String]
+}
+
 struct ClassificationResult: Codable, Hashable {
+    let suggestedTitle: String?
+    let summary: String?
+    let suggestedAction: String?
     let category: LaterCategory
     let kind: LaterKind
     let kindConfidence: Double
@@ -58,8 +121,14 @@ struct ClassificationResult: Codable, Hashable {
     let visualModelAvailable: Bool?
     let usedVisualClassification: Bool?
     let screenDetection: ScreenDetection?
+    let actionableEntities: [ActionableEntity]?
+    let detectedMedia: DetectedMedia?
+    let productDetails: DetectedProductDetails?
 
     init(
+        suggestedTitle: String? = nil,
+        summary: String? = nil,
+        suggestedAction: String? = nil,
         category: LaterCategory,
         kind: LaterKind,
         kindConfidence: Double,
@@ -73,8 +142,14 @@ struct ClassificationResult: Codable, Hashable {
         visualLabels: [VisualLabel]? = nil,
         visualModelAvailable: Bool? = nil,
         usedVisualClassification: Bool? = nil,
-        screenDetection: ScreenDetection? = nil
+        screenDetection: ScreenDetection? = nil,
+        actionableEntities: [ActionableEntity]? = nil,
+        detectedMedia: DetectedMedia? = nil,
+        productDetails: DetectedProductDetails? = nil
     ) {
+        self.suggestedTitle = suggestedTitle
+        self.summary = summary
+        self.suggestedAction = suggestedAction
         self.category = category
         self.kind = kind
         self.kindConfidence = kindConfidence
@@ -89,6 +164,9 @@ struct ClassificationResult: Codable, Hashable {
         self.visualModelAvailable = visualModelAvailable
         self.usedVisualClassification = usedVisualClassification
         self.screenDetection = screenDetection
+        self.actionableEntities = actionableEntities
+        self.detectedMedia = detectedMedia
+        self.productDetails = productDetails
     }
 
     static let unavailable = ClassificationResult(

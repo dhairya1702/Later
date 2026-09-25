@@ -26,6 +26,12 @@ enum ScreenshotSourceApp: String, Codable, Hashable {
     case googleMaps
     case instagram
     case youtube
+    case appleMusic
+    case spotify
+    case amazon
+    case flipkart
+    case facebookMarketplace
+    case ebay
     case tiktok
     case unknown
 }

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import UIKit
 import UserNotifications
 
 struct LaterNotificationPlan: Hashable {
@@ -285,6 +286,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     private let center = UNUserNotificationCenter.current()
     private let defaults = UserDefaults.standard
+    private static let pendingOpenedItemIDKey = "notification.pendingOpenedItemID"
     private var container: ModelContainer?
     private var isReconciling = false
     private var needsAnotherReconcile = false
@@ -307,12 +309,44 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         await reconcile()
     }
 
+    func consumePendingOpenedItemID() -> UUID? {
+        guard let rawValue = defaults.string(forKey: Self.pendingOpenedItemIDKey),
+              let itemID = UUID(uuidString: rawValue) else {
+            defaults.removeObject(forKey: Self.pendingOpenedItemIDKey)
+            return nil
+        }
+        defaults.removeObject(forKey: Self.pendingOpenedItemIDKey)
+        return itemID
+    }
+
     func handleProcessed(
         item: LaterItem,
         captureDate: Date,
         isNew: Bool
     ) async {
         if isNew { await deliverImmediateIfEligible(item: item, captureDate: captureDate) }
+        await reconcile()
+    }
+
+    func handleSharedItemProcessed(_ item: LaterItem) async {
+        let settings = await center.notificationSettings()
+        if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
+            let content = UNMutableNotificationContent()
+            content.title = "Saved to Later"
+            content.body = item.title
+            content.sound = .default
+            content.categoryIdentifier = "later.item"
+            content.userInfo = [
+                "itemID": item.id.uuidString,
+                "itemIDs": [item.id.uuidString]
+            ]
+            let request = UNNotificationRequest(
+                identifier: "later.share.\(item.id.uuidString)",
+                content: content,
+                trigger: nil
+            )
+            try? await center.add(request)
+        }
         await reconcile()
     }
 
@@ -347,7 +381,9 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         )
         let existing = await center.pendingNotificationRequests()
         let managedIdentifiers = existing.map(\.identifier).filter {
-            $0.hasPrefix("later.") && !$0.hasPrefix("later.immediate.")
+            $0.hasPrefix("later.")
+                && !$0.hasPrefix("later.immediate.")
+                && !$0.hasPrefix("later.share.")
         }
         center.removePendingNotificationRequests(withIdentifiers: managedIdentifiers)
 
@@ -474,22 +510,44 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
-    ) async {
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
         let userInfo = response.notification.request.content.userInfo
         let itemIDs = (userInfo["itemIDs"] as? [String] ?? [])
             .compactMap(UUID.init(uuidString:))
         let itemID = (userInfo["itemID"] as? String).flatMap(UUID.init(uuidString:))
+        let actionIdentifier = response.actionIdentifier
 
-        switch response.actionIdentifier {
-        case Action.done:
-            if let itemID { await complete(itemID: itemID) }
-        case Action.remindLater:
-            await snooze(itemIDs: itemIDs.isEmpty ? [itemID].compactMap { $0 } : itemIDs)
-        case Action.review:
-            break
-        default:
-            break
+        if actionIdentifier == UNNotificationDefaultActionIdentifier, let itemID {
+            UserDefaults.standard.set(
+                itemID.uuidString,
+                forKey: Self.pendingOpenedItemIDKey
+            )
+        }
+
+        // Let iOS finish handling the notification before doing any model or UI work.
+        // Navigating from this callback can overlap UIKit's state-restoration archive.
+        completionHandler()
+
+        Task { @MainActor in
+            switch actionIdentifier {
+            case Action.done:
+                if let itemID { await complete(itemID: itemID) }
+            case Action.remindLater:
+                await snooze(itemIDs: itemIDs.isEmpty ? [itemID].compactMap { $0 } : itemIDs)
+            case Action.review:
+                break
+            case UNNotificationDefaultActionIdentifier:
+                // If the scene was already active, prompt it after the callback and
+                // the current run loop have completed. Cold launches are picked up
+                // when HomeView becomes active.
+                await Task.yield()
+                guard UIApplication.shared.applicationState == .active else { return }
+                NotificationCenter.default.post(name: .laterOpenItem, object: nil)
+            default:
+                break
+            }
         }
     }
 
@@ -524,4 +582,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         try? context.save()
         await reconcile()
     }
+}
+
+extension Notification.Name {
+    static let laterOpenItem = Notification.Name("later.openItem")
 }
