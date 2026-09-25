@@ -1,0 +1,213 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A00000000000000000000101 /* LaterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000201 /* LaterApp.swift */; };
+		A00000000000000000000102 /* ScreenshotRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000202 /* ScreenshotRecord.swift */; };
+		A00000000000000000000103 /* PhotoAuthorizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000203 /* PhotoAuthorizationService.swift */; };
+		A00000000000000000000104 /* ScreenshotFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000204 /* ScreenshotFetcher.swift */; };
+		A00000000000000000000105 /* ImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000205 /* ImageLoader.swift */; };
+		A00000000000000000000106 /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000206 /* OCRService.swift */; };
+		A00000000000000000000107 /* ScreenshotRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000207 /* ScreenshotRepository.swift */; };
+		A00000000000000000000108 /* ScreenshotGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000208 /* ScreenshotGridView.swift */; };
+		A00000000000000000000109 /* ScreenshotDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000209 /* ScreenshotDetailView.swift */; };
+		A0000000000000000000010A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000020A /* Assets.xcassets */; };
+		A0000000000000000000010B /* ScreenshotRecordTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000020B /* ScreenshotRecordTests.swift */; };
+		A0000000000000000000010C /* LaterCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000020E /* LaterCategory.swift */; };
+		A0000000000000000000010D /* ClassificationResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000020F /* ClassificationResult.swift */; };
+		A0000000000000000000010E /* TextNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000210 /* TextNormalizer.swift */; };
+		A0000000000000000000010F /* FeatureExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000211 /* FeatureExtractor.swift */; };
+		A00000000000000000000110 /* ConfidenceRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000212 /* ConfidenceRouter.swift */; };
+		A00000000000000000000111 /* ScreenshotClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000213 /* ScreenshotClassifier.swift */; };
+		A00000000000000000000112 /* LaterItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000214 /* LaterItem.swift */; };
+		A00000000000000000000113 /* TitleExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000215 /* TitleExtractor.swift */; };
+		A00000000000000000000114 /* ItemRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000216 /* ItemRepository.swift */; };
+		A00000000000000000000115 /* ScreenshotProcessingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000217 /* ScreenshotProcessingService.swift */; };
+		A00000000000000000000116 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000218 /* HomeView.swift */; };
+		A00000000000000000000117 /* LaterKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000219 /* LaterKind.swift */; };
+		A00000000000000000000118 /* ScreenshotDiscoveryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000021A /* ScreenshotDiscoveryCoordinator.swift */; };
+		A00000000000000000000119 /* BackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000021B /* BackgroundTaskManager.swift */; };
+		A0000000000000000000011A /* ImportantFactExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000021D /* ImportantFactExtractor.swift */; };
+		A0000000000000000000011B /* VisualImageClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000021E /* VisualImageClassifier.swift */; };
+		A0000000000000000000011C /* OnboardingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000021F /* OnboardingState.swift */; };
+		A0000000000000000000011D /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000220 /* OnboardingView.swift */; };
+		A0000000000000000000011E /* OnboardingPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000221 /* OnboardingPageView.swift */; };
+		A0000000000000000000011F /* InitialScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000222 /* InitialScanView.swift */; };
+		A00000000000000000000120 /* LaterItemDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000223 /* LaterItemDetailView.swift */; };
+		A00000000000000000000121 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000224 /* NotificationManager.swift */; };
+		A00000000000000000000122 /* IntentNotificationComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000225 /* IntentNotificationComposer.swift */; };
+		A00000000000000000000123 /* DuplicateScreenshotDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000226 /* DuplicateScreenshotDetector.swift */; };
+		A00000000000000000000124 /* ScreenshotSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000227 /* ScreenshotSurface.swift */; };
+		A00000000000000000000125 /* ScreenSourceDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000228 /* ScreenSourceDetector.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A00000000000000000000301 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000401 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A00000000000000000000501;
+			remoteInfo = Later;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A00000000000000000000201 /* LaterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaterApp.swift; sourceTree = "<group>"; };
+		A00000000000000000000202 /* ScreenshotRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotRecord.swift; sourceTree = "<group>"; };
+		A00000000000000000000203 /* PhotoAuthorizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoAuthorizationService.swift; sourceTree = "<group>"; };
+		A00000000000000000000204 /* ScreenshotFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFetcher.swift; sourceTree = "<group>"; };
+		A00000000000000000000205 /* ImageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageLoader.swift; sourceTree = "<group>"; };
+		A00000000000000000000206 /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
+		A00000000000000000000207 /* ScreenshotRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotRepository.swift; sourceTree = "<group>"; };
+		A00000000000000000000208 /* ScreenshotGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotGrid/ScreenshotGridView.swift; sourceTree = "<group>"; };
+		A00000000000000000000209 /* ScreenshotDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotDetail/ScreenshotDetailView.swift; sourceTree = "<group>"; };
+		A0000000000000000000020A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A0000000000000000000020B /* ScreenshotRecordTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotRecordTests.swift; sourceTree = "<group>"; };
+		A0000000000000000000020C /* Later.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Later.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0000000000000000000020D /* LaterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LaterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0000000000000000000020E /* LaterCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaterCategory.swift; sourceTree = "<group>"; };
+		A0000000000000000000020F /* ClassificationResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassificationResult.swift; sourceTree = "<group>"; };
+		A00000000000000000000210 /* TextNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextNormalizer.swift; sourceTree = "<group>"; };
+		A00000000000000000000211 /* FeatureExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureExtractor.swift; sourceTree = "<group>"; };
+		A00000000000000000000212 /* ConfidenceRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfidenceRouter.swift; sourceTree = "<group>"; };
+		A00000000000000000000213 /* ScreenshotClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotClassifier.swift; sourceTree = "<group>"; };
+		A00000000000000000000214 /* LaterItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaterItem.swift; sourceTree = "<group>"; };
+		A00000000000000000000215 /* TitleExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleExtractor.swift; sourceTree = "<group>"; };
+		A00000000000000000000216 /* ItemRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemRepository.swift; sourceTree = "<group>"; };
+		A00000000000000000000217 /* ScreenshotProcessingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotProcessingService.swift; sourceTree = "<group>"; };
+		A00000000000000000000218 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Home/HomeView.swift; sourceTree = "<group>"; };
+		A00000000000000000000219 /* LaterKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaterKind.swift; sourceTree = "<group>"; };
+		A0000000000000000000021A /* ScreenshotDiscoveryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotDiscoveryCoordinator.swift; sourceTree = "<group>"; };
+		A0000000000000000000021B /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
+		A0000000000000000000021C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A0000000000000000000021D /* ImportantFactExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportantFactExtractor.swift; sourceTree = "<group>"; };
+		A0000000000000000000021E /* VisualImageClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualImageClassifier.swift; sourceTree = "<group>"; };
+		A0000000000000000000021F /* OnboardingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Onboarding/OnboardingState.swift; sourceTree = "<group>"; };
+		A00000000000000000000220 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Onboarding/OnboardingView.swift; sourceTree = "<group>"; };
+		A00000000000000000000221 /* OnboardingPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Onboarding/OnboardingPageView.swift; sourceTree = "<group>"; };
+		A00000000000000000000222 /* InitialScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Onboarding/InitialScanView.swift; sourceTree = "<group>"; };
+		A00000000000000000000223 /* LaterItemDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Home/LaterItemDetailView.swift; sourceTree = "<group>"; };
+		A00000000000000000000224 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		A00000000000000000000225 /* IntentNotificationComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentNotificationComposer.swift; sourceTree = "<group>"; };
+		A00000000000000000000226 /* DuplicateScreenshotDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateScreenshotDetector.swift; sourceTree = "<group>"; };
+		A00000000000000000000227 /* ScreenshotSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotSurface.swift; sourceTree = "<group>"; };
+		A00000000000000000000228 /* ScreenSourceDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenSourceDetector.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A00000000000000000000601 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A00000000000000000000602 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A00000000000000000000701 = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000702 /* Later */,
+				A0000000000000000000070A /* LaterTests */,
+				A0000000000000000000070B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A00000000000000000000702 /* Later */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000703 /* App */,
+				A00000000000000000000704 /* Models */,
+				A00000000000000000000705 /* PhotoLibrary */,
+				A00000000000000000000706 /* Analysis */,
+				A00000000000000000000707 /* Persistence */,
+				A00000000000000000000708 /* Features */,
+				A00000000000000000000709 /* Resources */,
+			);
+			path = Later;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000703 /* App */ = {isa = PBXGroup; children = (A00000000000000000000201 /* LaterApp.swift */, A0000000000000000000021B /* BackgroundTaskManager.swift */, A00000000000000000000224 /* NotificationManager.swift */,); path = App; sourceTree = "<group>"; };
+		A00000000000000000000704 /* Models */ = {isa = PBXGroup; children = (A00000000000000000000202 /* ScreenshotRecord.swift */, A00000000000000000000214 /* LaterItem.swift */, A0000000000000000000020E /* LaterCategory.swift */, A00000000000000000000219 /* LaterKind.swift */, A0000000000000000000020F /* ClassificationResult.swift */, A00000000000000000000227 /* ScreenshotSurface.swift */,); path = Models; sourceTree = "<group>"; };
+		A00000000000000000000705 /* PhotoLibrary */ = {isa = PBXGroup; children = (A00000000000000000000203 /* PhotoAuthorizationService.swift */, A00000000000000000000204 /* ScreenshotFetcher.swift */, A00000000000000000000205 /* ImageLoader.swift */, A0000000000000000000021A /* ScreenshotDiscoveryCoordinator.swift */,); path = PhotoLibrary; sourceTree = "<group>"; };
+		A00000000000000000000706 /* Analysis */ = {isa = PBXGroup; children = (A00000000000000000000206 /* OCRService.swift */, A00000000000000000000210 /* TextNormalizer.swift */, A00000000000000000000211 /* FeatureExtractor.swift */, A0000000000000000000021D /* ImportantFactExtractor.swift */, A0000000000000000000021E /* VisualImageClassifier.swift */, A00000000000000000000212 /* ConfidenceRouter.swift */, A00000000000000000000213 /* ScreenshotClassifier.swift */, A00000000000000000000228 /* ScreenSourceDetector.swift */, A00000000000000000000215 /* TitleExtractor.swift */, A00000000000000000000225 /* IntentNotificationComposer.swift */, A00000000000000000000226 /* DuplicateScreenshotDetector.swift */, A00000000000000000000217 /* ScreenshotProcessingService.swift */,); path = Analysis; sourceTree = "<group>"; };
+		A00000000000000000000707 /* Persistence */ = {isa = PBXGroup; children = (A00000000000000000000207 /* ScreenshotRepository.swift */, A00000000000000000000216 /* ItemRepository.swift */,); path = Persistence; sourceTree = "<group>"; };
+		A00000000000000000000708 /* Features */ = {isa = PBXGroup; children = (A00000000000000000000218 /* HomeView.swift */, A00000000000000000000223 /* LaterItemDetailView.swift */, A00000000000000000000208 /* ScreenshotGridView.swift */, A00000000000000000000209 /* ScreenshotDetailView.swift */, A0000000000000000000021F /* OnboardingState.swift */, A00000000000000000000220 /* OnboardingView.swift */, A00000000000000000000221 /* OnboardingPageView.swift */, A00000000000000000000222 /* InitialScanView.swift */,); path = Features; sourceTree = "<group>"; };
+		A00000000000000000000709 /* Resources */ = {isa = PBXGroup; children = (A0000000000000000000020A /* Assets.xcassets */, A0000000000000000000021C /* Info.plist */,); path = Resources; sourceTree = "<group>"; };
+		A0000000000000000000070A /* LaterTests */ = {isa = PBXGroup; children = (A0000000000000000000020B /* ScreenshotRecordTests.swift */,); path = LaterTests; sourceTree = "<group>"; };
+		A0000000000000000000070B /* Products */ = {isa = PBXGroup; children = (A0000000000000000000020C /* Later.app */, A0000000000000000000020D /* LaterTests.xctest */,); name = Products; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A00000000000000000000501 /* Later */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000A02 /* Build configuration list for PBXNativeTarget "Later" */;
+			buildPhases = (A00000000000000000000801 /* Sources */, A00000000000000000000601 /* Frameworks */, A00000000000000000000901 /* Resources */,);
+			buildRules = ();
+			dependencies = ();
+			name = Later;
+			productName = Later;
+			productReference = A0000000000000000000020C /* Later.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A00000000000000000000502 /* LaterTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000A03 /* Build configuration list for PBXNativeTarget "LaterTests" */;
+			buildPhases = (A00000000000000000000802 /* Sources */, A00000000000000000000602 /* Frameworks */, A00000000000000000000902 /* Resources */,);
+			buildRules = ();
+			dependencies = (A00000000000000000000B01 /* PBXTargetDependency */,);
+			name = LaterTests;
+			productName = LaterTests;
+			productReference = A0000000000000000000020D /* LaterTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A00000000000000000000401 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {BuildIndependentTargetsInParallel = YES; LastSwiftUpdateCheck = 2610; LastUpgradeCheck = 2610; TargetAttributes = {A00000000000000000000501 = {CreatedOnToolsVersion = 26.1;}; A00000000000000000000502 = {CreatedOnToolsVersion = 26.1; TestTargetID = A00000000000000000000501;};};};
+			buildConfigurationList = A00000000000000000000A01 /* Build configuration list for PBXProject "Later" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base,);
+			mainGroup = A00000000000000000000701;
+			productRefGroup = A0000000000000000000070B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (A00000000000000000000501 /* Later */, A00000000000000000000502 /* LaterTests */,);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A00000000000000000000901 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000010A /* Assets.xcassets in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
+		A00000000000000000000902 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A00000000000000000000801 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000101, A00000000000000000000102, A00000000000000000000103, A00000000000000000000104, A00000000000000000000105, A00000000000000000000106, A00000000000000000000107, A00000000000000000000108, A00000000000000000000109, A0000000000000000000010C, A0000000000000000000010D, A0000000000000000000010E, A0000000000000000000010F, A00000000000000000000110, A00000000000000000000111, A00000000000000000000112, A00000000000000000000113, A00000000000000000000114, A00000000000000000000115, A00000000000000000000116, A00000000000000000000117, A00000000000000000000118, A00000000000000000000119, A0000000000000000000011A, A0000000000000000000011B, A0000000000000000000011C, A0000000000000000000011D, A0000000000000000000011E, A0000000000000000000011F, A00000000000000000000120, A00000000000000000000121, A00000000000000000000122, A00000000000000000000123, A00000000000000000000124, A00000000000000000000125,); runOnlyForDeploymentPostprocessing = 0; };
+		A00000000000000000000802 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000010B /* ScreenshotRecordTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A00000000000000000000B01 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = A00000000000000000000501 /* Later */; targetProxy = A00000000000000000000301 /* PBXContainerItemProxy */; };
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A00000000000000000000C01 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_TESTABILITY = YES; GCC_C_LANGUAGE_STANDARD = gnu17; GCC_OPTIMIZATION_LEVEL = 0; IPHONEOS_DEPLOYMENT_TARGET = 18.0; ONLY_ACTIVE_ARCH = YES; SDKROOT = iphoneos; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_VERSION = 5.0;}; name = Debug; };
+		A00000000000000000000C02 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 18.0; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O"; SWIFT_VERSION = 5.0; VALIDATE_PRODUCT = YES;}; name = Release; };
+		A00000000000000000000C03 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_ASSET_PATHS = ""; DEVELOPMENT_TEAM = X34H6AHCUU; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Later/Resources/Info.plist; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.Later; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; TARGETED_DEVICE_FAMILY = "1,2";}; name = Debug; };
+		A00000000000000000000C04 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = X34H6AHCUU; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = Later/Resources/Info.plist; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.Later; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; TARGETED_DEVICE_FAMILY = "1,2";}; name = Release; };
+		A00000000000000000000C05 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 18.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.LaterTests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Later.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Later";}; name = Debug; };
+		A00000000000000000000C06 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 18.0; PRODUCT_BUNDLE_IDENTIFIER = com.dhairyalalwani.LaterTests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Later.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Later";}; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A00000000000000000000A01 /* Build configuration list for PBXProject "Later" */ = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000C01 /* Debug */, A00000000000000000000C02 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A00000000000000000000A02 /* Build configuration list for PBXNativeTarget "Later" */ = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000C03 /* Debug */, A00000000000000000000C04 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A00000000000000000000A03 /* Build configuration list for PBXNativeTarget "LaterTests" */ = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000C05 /* Debug */, A00000000000000000000C06 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = A00000000000000000000401 /* Project object */;
+}
