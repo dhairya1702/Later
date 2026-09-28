@@ -32,6 +32,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+**/node_modules/
 
 # Xcode user state and local build output
 DerivedData/
@@ -47,6 +48,7 @@ DerivedData/
 .env
 .env.*
 !.env.example
+Later/Configuration/CloudConfig.local.xcconfig
 
 # Local vision spike inputs and outputs may contain private screenshots.
 tools/vision-spike/screenshots/*

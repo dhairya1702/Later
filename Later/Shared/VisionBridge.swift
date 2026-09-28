@@ -84,9 +84,9 @@ enum VisionBridgeClientError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .missingEndpoint: "The local vision bridge URL is missing."
+        case .missingEndpoint: "The screenshot analysis service URL is missing."
         case .invalidImage: "The screenshot could not be prepared for analysis."
-        case .invalidResponse: "The local vision bridge returned an invalid response."
+        case .invalidResponse: "The screenshot analysis service returned an invalid response."
         case .server(let message): message
         }
     }
@@ -126,6 +126,10 @@ struct VisionBridgeClient {
         request.httpMethod = "POST"
         request.timeoutInterval = timeout
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        if let token = Bundle.main.object(forInfoDictionaryKey: "LaterAnalysisToken") as? String,
+           !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
         return request
     }
 

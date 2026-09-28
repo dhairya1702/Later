@@ -19,14 +19,9 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LaterVisionBaseURL</key>
-	<string>http://10.0.0.198:8787</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Later connects to its screenshot analysis service.</string>
+	<string>$(LATER_VISION_BASE_URL)</string>
+	<key>LaterAnalysisToken</key>
+	<string>$(LATER_ANALYSIS_TOKEN)</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionAttributes</key>

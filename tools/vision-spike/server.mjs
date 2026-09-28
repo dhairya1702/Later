@@ -1,35 +1,39 @@
 #!/usr/bin/env node
 
 import { createServer } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import process from "node:process";
 import {
   analyzeImageBytes,
+  configuredModel,
+  configuredProvider,
   loadLocalEnvironment,
   parseOutput,
+  requireProviderConfiguration,
 } from "./analyze.mjs";
 
 const host = "0.0.0.0";
-const port = Number(process.env.LATER_VISION_PORT || 8787);
+const port = Number(process.env.PORT || process.env.LATER_VISION_PORT || 8080);
 const maxBytes = 12 * 1024 * 1024;
 
 await loadLocalEnvironment();
-
-if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("replace_with")) {
-  console.error("Missing OPENAI_API_KEY in .env.local");
-  process.exit(1);
-}
+requireProviderConfiguration();
 
 const server = createServer(async (request, response) => {
   try {
     if (request.method === "GET" && request.url === "/health") {
       return sendJSON(response, 200, {
         ok: true,
-        model: process.env.OPENAI_MODEL || "gpt-6-luna",
+        provider: configuredProvider(),
+        model: configuredModel(),
       });
     }
 
     if (request.method !== "POST" || request.url !== "/analyze") {
       return sendJSON(response, 404, { error: "Not found" });
+    }
+    if (!isAuthorized(request)) {
+      return sendJSON(response, 401, { error: "Unauthorized" });
     }
 
     const mimeType = (request.headers["content-type"] || "").split(";")[0];
@@ -39,13 +43,16 @@ const server = createServer(async (request, response) => {
 
     const bytes = await readBody(request);
     const startedAt = Date.now();
-    const upstream = await withRetry(() => analyzeImageBytes(bytes, mimeType));
-    const analysis = parseOutput(upstream);
-    console.log(`${analysis.category}/${analysis.kind} ${analysis.title} (${Date.now() - startedAt}ms)`);
+    const analysis = await withRetry(async () => {
+      const upstream = await analyzeImageBytes(bytes, mimeType);
+      return parseOutput(upstream);
+    });
+    console.log(`${analysis.category}/${analysis.kind} (${Date.now() - startedAt}ms)`);
     return sendJSON(response, 200, { analysis });
   } catch (error) {
     console.error(error.message);
-    return sendJSON(response, 502, { error: error.message });
+    const status = error.code === "PAYLOAD_TOO_LARGE" ? 413 : 502;
+    return sendJSON(response, status, { error: error.message });
   }
 });
 
@@ -58,11 +65,26 @@ async function readBody(request) {
   let length = 0;
   for await (const chunk of request) {
     length += chunk.length;
-    if (length > maxBytes) throw new Error("Image exceeds the 12 MB local limit");
+    if (length > maxBytes) {
+      const error = new Error("Image exceeds the 12 MB limit");
+      error.code = "PAYLOAD_TOO_LARGE";
+      throw error;
+    }
     chunks.push(chunk);
   }
   if (length === 0) throw new Error("Image body is empty");
   return Buffer.concat(chunks);
+}
+
+function isAuthorized(request) {
+  const expected = process.env.LATER_API_TOKEN?.trim();
+  if (!expected) return true;
+  const header = request.headers.authorization || "";
+  const actual = header.startsWith("Bearer ") ? header.slice(7) : "";
+  const expectedBytes = Buffer.from(expected);
+  const actualBytes = Buffer.from(actual);
+  return expectedBytes.length === actualBytes.length
+    && timingSafeEqual(expectedBytes, actualBytes);
 }
 
 async function withRetry(operation) {

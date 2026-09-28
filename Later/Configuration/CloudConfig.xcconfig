@@ -1,0 +1,6 @@
+// Safe committed defaults. deploy-gcp.sh writes the real values to the ignored
+// CloudConfig.local.xcconfig file after Cloud Run is ready.
+LATER_VISION_BASE_URL = https:/$()/not-configured.invalid
+LATER_ANALYSIS_TOKEN =
+
+#include? "CloudConfig.local.xcconfig"

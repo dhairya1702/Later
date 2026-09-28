@@ -3,6 +3,7 @@
 import { readFile, readdir, mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import process from "node:process";
+import { GoogleAuth } from "google-auth-library";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "../..");
 const DEFAULT_INPUT = join(ROOT, "tools/vision-spike/screenshots");
@@ -178,13 +179,14 @@ async function main() {
 
   const argument = process.argv[2];
   if (argument === "--check") {
-    requireKey();
-    console.log(`Ready. Model: ${process.env.OPENAI_MODEL || "gpt-6-luna"}`);
-    console.log(`Endpoint: ${responsesEndpoint()}`);
+    requireProviderConfiguration();
+    console.log(`Ready. Provider: ${configuredProvider()}`);
+    console.log(`Model: ${configuredModel()}`);
+    console.log(`Endpoint: ${configuredEndpoint()}`);
     return;
   }
 
-  requireKey();
+  requireProviderConfiguration();
   const inputPath = resolve(argument || DEFAULT_INPUT);
   const images = await imagePaths(inputPath);
 
@@ -201,10 +203,11 @@ async function main() {
       const analysis = parseOutput(response);
       const result = {
         file: basename(imagePath),
-        model: response.model,
-        responseId: response.id,
+        provider: configuredProvider(),
+        model: response.model || configuredModel(),
+        responseId: response.id || null,
         elapsedMilliseconds: Date.now() - startedAt,
-        usage: response.usage ?? null,
+        usage: response.usage ?? response.usageMetadata ?? null,
         analysis,
       };
       const resultPath = join(
@@ -229,6 +232,13 @@ async function analyze(imagePath) {
 }
 
 export async function analyzeImageBytes(bytes, mimeType) {
+  if (configuredProvider() === "vertex") {
+    return analyzeImageWithVertex(bytes, mimeType);
+  }
+  return analyzeImageWithOpenAI(bytes, mimeType);
+}
+
+async function analyzeImageWithOpenAI(bytes, mimeType) {
   const imageUrl = `data:${mimeType};base64,${bytes.toString("base64")}`;
   const response = await fetch(responsesEndpoint(), {
     method: "POST",
@@ -237,7 +247,7 @@ export async function analyzeImageBytes(bytes, mimeType) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || "gpt-6-luna",
+      model: configuredModel(),
       store: false,
       reasoning: { effort: "none" },
       instructions,
@@ -264,6 +274,46 @@ export async function analyzeImageBytes(bytes, mimeType) {
     throw new Error(payload?.error?.message || `OpenAI returned HTTP ${response.status}`);
   }
   return payload;
+}
+
+async function analyzeImageWithVertex(bytes, mimeType) {
+  const auth = new GoogleAuth({
+    scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+  });
+  const project = process.env.GOOGLE_CLOUD_PROJECT
+    || process.env.GCLOUD_PROJECT
+    || await auth.getProjectId();
+  if (!project) throw new Error("GOOGLE_CLOUD_PROJECT is required for Vertex AI");
+
+  const client = await auth.getClient();
+  const response = await client.request({
+    url: vertexEndpoint(project),
+    method: "POST",
+    data: {
+      systemInstruction: {
+        parts: [{ text: instructions }],
+      },
+      contents: [{
+        role: "user",
+        parts: [
+          { text: "Analyze this screenshot for Later." },
+          {
+            inlineData: {
+              mimeType,
+              data: bytes.toString("base64"),
+            },
+          },
+        ],
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 8192,
+        responseMimeType: "application/json",
+        responseSchema: toVertexSchema(schema),
+      },
+    },
+  });
+  return response.data;
 }
 
 async function responsePayload(response) {
@@ -331,6 +381,21 @@ function parseServerSentEvents(body) {
 }
 
 export function parseOutput(response) {
+  if (Array.isArray(response.candidates)) {
+    const candidate = response.candidates[0];
+    const text = candidate?.content?.parts
+      ?.map((part) => part.text)
+      .filter((part) => typeof part === "string")
+      .join("");
+    if (!text) {
+      const reason = response.promptFeedback?.blockReason
+        || candidate?.finishReason
+        || "no candidate text";
+      throw new Error(`Gemini returned no structured output (${reason})`);
+    }
+    return validateAnalysis(parseJSONText(text));
+  }
+
   const content = response.output
     ?.filter((item) => item.type === "message")
     .flatMap((item) => item.content || []);
@@ -346,7 +411,106 @@ export function parseOutput(response) {
       `No structured output returned (status: ${response.status}, output: ${JSON.stringify(shape || [])})`,
     );
   }
-  return JSON.parse(text);
+  return validateAnalysis(parseJSONText(text));
+}
+
+function parseJSONText(text) {
+  const trimmed = text.trim();
+  const unfenced = trimmed.startsWith("```")
+    ? trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")
+    : trimmed;
+  return JSON.parse(unfenced);
+}
+
+export function validateAnalysis(value) {
+  validateSchemaValue(value, schema, "analysis");
+  return value;
+}
+
+function validateSchemaValue(value, definition, path) {
+  if (definition.anyOf) {
+    const failures = [];
+    for (const option of definition.anyOf) {
+      try {
+        validateSchemaValue(value, option, path);
+        return;
+      } catch (error) {
+        failures.push(error.message);
+      }
+    }
+    throw new Error(`${path} did not match the expected schema: ${failures.join("; ")}`);
+  }
+
+  const allowedTypes = Array.isArray(definition.type)
+    ? definition.type
+    : definition.type ? [definition.type] : [];
+  if (value === null) {
+    if (allowedTypes.includes("null")) return;
+    throw new Error(`${path} must not be null`);
+  }
+
+  const actualType = Array.isArray(value) ? "array" : typeof value;
+  if (allowedTypes.length && !allowedTypes.includes(actualType)) {
+    throw new Error(`${path} must be ${allowedTypes.join(" or ")}`);
+  }
+  if (definition.enum && !definition.enum.includes(value)) {
+    throw new Error(`${path} has an unsupported value`);
+  }
+  if (actualType === "array") {
+    if (definition.minItems != null && value.length < definition.minItems) {
+      throw new Error(`${path} has too few items`);
+    }
+    if (definition.maxItems != null && value.length > definition.maxItems) {
+      throw new Error(`${path} has too many items`);
+    }
+    value.forEach((item, index) => validateSchemaValue(item, definition.items, `${path}[${index}]`));
+  }
+  if (actualType === "object") {
+    for (const key of definition.required || []) {
+      if (!(key in value)) throw new Error(`${path}.${key} is required`);
+    }
+    for (const [key, child] of Object.entries(definition.properties || {})) {
+      if (key in value) validateSchemaValue(value[key], child, `${path}.${key}`);
+    }
+    if (definition.additionalProperties === false) {
+      const supported = new Set(Object.keys(definition.properties || {}));
+      const extra = Object.keys(value).find((key) => !supported.has(key));
+      if (extra) throw new Error(`${path}.${extra} is not supported`);
+    }
+  }
+}
+
+export function toVertexSchema(definition) {
+  if (definition.anyOf) {
+    const nonNull = definition.anyOf.filter((option) => option.type !== "null");
+    const includesNull = nonNull.length !== definition.anyOf.length;
+    if (includesNull && nonNull.length === 1) {
+      return { ...toVertexSchema(nonNull[0]), nullable: true };
+    }
+    return { anyOf: nonNull.map(toVertexSchema), ...(includesNull ? { nullable: true } : {}) };
+  }
+
+  const rawTypes = Array.isArray(definition.type)
+    ? definition.type
+    : definition.type ? [definition.type] : [];
+  const includesNull = rawTypes.includes("null");
+  const type = rawTypes.find((candidate) => candidate !== "null");
+  const converted = {};
+  if (type) converted.type = type.toUpperCase();
+  if (includesNull) converted.nullable = true;
+  if (definition.enum) converted.enum = definition.enum.filter((value) => value !== null);
+  if (definition.required) converted.required = definition.required;
+  if (definition.items) converted.items = toVertexSchema(definition.items);
+  if (definition.properties) {
+    converted.properties = Object.fromEntries(
+      Object.entries(definition.properties).map(([key, value]) => [key, toVertexSchema(value)]),
+    );
+    converted.propertyOrdering = Object.keys(definition.properties);
+  }
+  for (const constraint of ["minimum", "maximum", "minItems", "maxItems"]) {
+    if (definition[constraint] != null) converted[constraint] = definition[constraint];
+  }
+  return converted;
 }
 
 async function imagePaths(path) {
@@ -391,10 +555,42 @@ export async function loadLocalEnvironment() {
   }
 }
 
-function requireKey() {
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("replace_with")) {
+export function configuredProvider() {
+  const explicit = process.env.AI_PROVIDER?.trim().toLowerCase();
+  if (explicit) return explicit;
+  return process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT ? "vertex" : "openai";
+}
+
+export function configuredModel() {
+  return configuredProvider() === "vertex"
+    ? process.env.GEMINI_MODEL || "gemini-2.5-flash-lite"
+    : process.env.OPENAI_MODEL || "gpt-6-luna";
+}
+
+export function requireProviderConfiguration() {
+  const provider = configuredProvider();
+  if (!new Set(["vertex", "openai"]).has(provider)) {
+    fail(`Unsupported AI_PROVIDER: ${provider}`);
+  }
+  if (provider === "openai"
+      && (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("replace_with"))) {
     fail("Missing OPENAI_API_KEY. Copy .env.example to .env.local and add your key.");
   }
+}
+
+function configuredEndpoint() {
+  if (configuredProvider() === "vertex") {
+    const project = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || "<project>";
+    return vertexEndpoint(project);
+  }
+  return responsesEndpoint();
+}
+
+function vertexEndpoint(project) {
+  const location = process.env.VERTEX_LOCATION || "us-central1";
+  const model = configuredModel();
+  return `https://${location}-aiplatform.googleapis.com/v1/projects/${project}`
+    + `/locations/${location}/publishers/google/models/${model}:generateContent`;
 }
 
 function responsesEndpoint() {
