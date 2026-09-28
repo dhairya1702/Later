@@ -14,6 +14,8 @@ struct VisionAnalysis: Codable {
     let kind: String
     let surface: String
     let sourceApp: String
+    let sourceContext: String?
+    let likelyAccidental: Bool
     let confidence: Double
     let needsReview: Bool
     let evidence: [String]

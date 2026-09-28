@@ -118,6 +118,7 @@ extension VisionAnalysis {
             : ScreenDetection(
                 surface: mappedSurface,
                 sourceApp: mappedSourceApp,
+                sourceContext: sourceContext,
                 confidence: confidence,
                 evidence: evidence
             )
@@ -182,6 +183,7 @@ extension VisionAnalysis {
             visualModelAvailable: true,
             usedVisualClassification: true,
             screenDetection: detection,
+            likelyAccidental: likelyAccidental,
             actionableEntities: mappedEntities,
             detectedMedia: mappedMedia,
             productDetails: mappedProduct

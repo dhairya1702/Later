@@ -31,7 +31,7 @@ const surfaces = [
 const sourceApps = [
   "iMessage", "whatsapp", "snapchat", "appleMail", "gmail", "outlook",
   "reddit", "appStore", "appleMaps", "googleMaps", "instagram", "youtube",
-  "tiktok", "appleMusic", "spotify", "amazon", "flipkart",
+  "linkedin", "tiktok", "appleMusic", "spotify", "amazon", "flipkart",
   "facebookMarketplace", "ebay", "unknown",
 ];
 
@@ -51,6 +51,8 @@ const schema = {
     kind: { type: "string", enum: kinds },
     surface: { type: "string", enum: surfaces },
     sourceApp: { type: "string", enum: sourceApps },
+    sourceContext: nullableString,
+    likelyAccidental: { type: "boolean" },
     confidence: { type: "number", minimum: 0, maximum: 1 },
     needsReview: { type: "boolean" },
     evidence: { type: "array", items: { type: "string" } },
@@ -149,7 +151,7 @@ const schema = {
   },
   required: [
     "title", "summary", "suggestedAction", "visibleText", "category", "kind",
-    "surface", "sourceApp", "confidence", "needsReview", "evidence",
+    "surface", "sourceApp", "sourceContext", "likelyAccidental", "confidence", "needsReview", "evidence",
     "actionableEntities", "media", "productDetails", "facts",
   ],
 };
@@ -160,6 +162,10 @@ You analyze iPhone screenshots for Later, an app that recovers why a person save
 Interpret the entire screenshot: app chrome, UI hierarchy, imagery, visible text, buttons, and relationships between them. Identify the likely source app and screen surface, then infer the user's most likely intent. Category is the user's intent; kind is the saved subject or screen type. A chat or social post can still contain something to eat, buy, watch, read, or visit.
 
 Choose only from the supplied enum values. Write a short useful title for a card in the app. Use "other" and needsReview=true when the intent is genuinely unclear. Confidence represents confidence in the complete classification, not confidence that text is readable.
+
+sourceApp identifies the app or platform whose UI is visibly shown; use linkedin for recognizable LinkedIn screenshots. sourceContext is optional, visibly supported context about that source. For Reddit, return the exact community name normalized as r/CommunityName when it is visible. Never guess a community from the post topic, username, or content. Return null for sourceContext when the community is absent or ambiguous, and for non-Reddit sources.
+
+likelyAccidental is true only when the image is very likely an unintended screenshot: a plain iPhone Home Screen, or a plain Lock Screen containing only ordinary clock/date/status chrome and no meaningful saved content. Be conservative. Return false for Lock Screens with meaningful notifications, music or media, navigation, live activities, useful information, or a wallpaper/photo that appears to be the subject. Never infer accidental merely because surface is lockScreen.
 
 Category rules: use offer when the main saved value is a redeemable promotion, coupon, discount code, or limited-time deal. Use buy for a specific product the user may want to purchase, not for a coupon merely because redemption involves a purchase. Use eat for a restaurant or dish recommendation; use go for a destination, venue, trip, or event; use remember for information without a clearer actionable intent.
 

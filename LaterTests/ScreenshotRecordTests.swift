@@ -177,6 +177,34 @@ struct ScreenshotRecordTests {
         #expect(ItemRelevancePolicy.explicitDate("October 15, 2025") != nil)
     }
 
+    @Test func likelyAccidentalScreenshotsOnlyReceiveCleanupReminders() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 21, hour: 8))!
+        let item = LaterItem(
+            title: "Lock Screen",
+            category: .other,
+            kind: .lockScreen,
+            confidence: 0.95,
+            createdAt: now,
+            screenshotAssetIdentifier: "accidental-lock-screen",
+            rawOCRText: "9:41 Sunday, September 21",
+            needsReview: true
+        )
+        item.screenSurface = .lockScreen
+        item.likelyAccidental = true
+
+        let policy = ItemRelevancePolicy(calendar: calendar)
+        #expect(!policy.allowsReminder(item, at: now))
+        #expect(policy.cleanupReason(for: item, at: now) == .likelyAccidental)
+
+        let plans = NotificationPlanner(calendar: calendar).plans(for: [item], now: now)
+        #expect(plans.count == 1)
+        #expect(plans.first?.isCleanup == true)
+        #expect(plans.first?.title == "This looks like a mistake")
+        #expect(plans.first?.body == "This screenshot looks accidental. You might want to delete it.")
+    }
+
     @Test func doorDashCouponIsAPrimaryOffer() async {
         let result = await ScreenshotClassifier.shared.classify(
             text: "DoorDash: Get $15 off your next order. Promo code SAVE15. Expires October 15."
@@ -546,6 +574,7 @@ struct ScreenshotRecordTests {
 
         #expect(result.screenDetection?.surface == .redditPost)
         #expect(result.screenDetection?.sourceApp == .reddit)
+        #expect(result.screenDetection?.sourceContext == "r/chicago")
         #expect(result.kind == .socialPost)
         #expect(result.category == .read)
     }

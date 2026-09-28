@@ -17,6 +17,8 @@ const validAnalysis = {
   kind: "food",
   surface: "unknown",
   sourceApp: "unknown",
+  sourceContext: null,
+  likelyAccidental: false,
   confidence: 0.93,
   needsReview: false,
   evidence: ["Marlow", "Friday 7:00 PM"],
@@ -60,6 +62,14 @@ test("invalid model output is rejected before reaching the phone", () => {
   );
   const { facts, ...missingFacts } = validAnalysis;
   assert.throws(() => validateAnalysis(missingFacts), /facts is required/);
+});
+
+test("Reddit communities and LinkedIn are accepted as source metadata", () => {
+  const reddit = { ...validAnalysis, sourceApp: "reddit", sourceContext: "r/AskReddit" };
+  assert.equal(validateAnalysis(reddit).sourceContext, "r/AskReddit");
+
+  const linkedin = { ...validAnalysis, sourceApp: "linkedin", sourceContext: null };
+  assert.equal(validateAnalysis(linkedin).sourceApp, "linkedin");
 });
 
 test("Vertex schema converts nullable JSON schema values", () => {

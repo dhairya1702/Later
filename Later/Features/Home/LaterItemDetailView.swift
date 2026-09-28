@@ -189,6 +189,7 @@ struct LaterItemDetailView: View {
                 }
             }
         }
+        .tint(Color(uiColor: .systemBlue))
         .presentationDetents([.medium])
     }
 
@@ -271,6 +272,9 @@ struct LaterItemDetailView: View {
                 if item.isOffer == true && item.kind != .offer {
                     Label("OFFER", systemImage: "tag.fill")
                 }
+                if let sourceBadge {
+                    Label(sourceBadge.label, systemImage: sourceBadge.icon)
+                }
             }
             .font(.caption.bold())
             .foregroundStyle(categoryColor)
@@ -288,6 +292,10 @@ struct LaterItemDetailView: View {
         VStack(alignment: .leading, spacing: 15) {
             Text("Details")
                 .font(.headline)
+
+            ForEach(sourceDetailRows) { row in
+                DetailFact(icon: row.icon, label: row.label, value: row.value)
+            }
 
             if item.productDetails != nil {
                 ForEach(productDetailRows) { row in
@@ -656,8 +664,39 @@ struct LaterItemDetailView: View {
     }
 
     private var hasImportantDetails: Bool {
-        !productDetailRows.isEmpty || item.discountText != nil || item.couponCode != nil || dateValue != nil ||
+        !sourceDetailRows.isEmpty || !productDetailRows.isEmpty || item.discountText != nil || item.couponCode != nil || dateValue != nil ||
             item.detectedLocation != nil || formattedPrice != nil
+    }
+
+    private var sourceBadge: (label: String, icon: String)? {
+        switch item.sourceApp {
+        case .reddit:
+            ("REDDIT", "bubble.left.and.bubble.right.fill")
+        case .linkedin:
+            ("LINKEDIN", "briefcase.fill")
+        default:
+            nil
+        }
+    }
+
+    private var sourceDetailRows: [ProductDetailRow] {
+        switch item.sourceApp {
+        case .reddit:
+            var rows = [ProductDetailRow(
+                icon: "bubble.left.and.bubble.right.fill",
+                label: "Platform",
+                value: "Reddit"
+            )]
+            if let community = item.sourceContext?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !community.isEmpty {
+                rows.append(ProductDetailRow(icon: "person.3.fill", label: "Community", value: community))
+            }
+            return rows
+        case .linkedin:
+            return [ProductDetailRow(icon: "briefcase.fill", label: "Platform", value: "LinkedIn")]
+        default:
+            return []
+        }
     }
 
     private var productDetailRows: [ProductDetailRow] {
@@ -812,6 +851,7 @@ private struct ReminderChoiceSheet: View {
                 }
             }
         }
+        .tint(Color(uiColor: .systemBlue))
     }
 }
 

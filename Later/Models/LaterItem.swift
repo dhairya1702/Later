@@ -32,6 +32,8 @@ final class LaterItem {
     var isVisualOnly: Bool?
     var screenSurfaceRaw: String?
     var sourceAppRaw: String?
+    var sourceContext: String?
+    var likelyAccidental: Bool?
     var screenDetectionConfidence: Double?
     var screenDetectionEvidenceText: String?
     var metadataJSON: Data?
@@ -153,12 +155,14 @@ final class LaterItem {
 
 /// One policy shared by scheduled reminders, immediate reminders and cleanup UI.
 enum ItemCleanupReason: Hashable {
+    case likelyAccidental
     case expired
     case datePassed
     case old
 
     var displayName: String {
         switch self {
+        case .likelyAccidental: "Likely accidental"
         case .expired: "Expired"
         case .datePassed: "Date passed"
         case .old: "6+ months ago"
@@ -205,6 +209,7 @@ struct ItemRelevancePolicy {
 
     func allowsReminder(_ item: LaterItem, at date: Date) -> Bool {
         guard !item.isCompleted, !item.isDuplicateCopy, item.screenSurface != .lockScreen,
+              item.likelyAccidental != true,
               item.statusRaw != "archived", !hasPassed(item, at: date),
               item.snoozedUntil == nil || item.snoozedUntil! <= date else { return false }
         if meaningfulDate(for: item) != nil { return true }
@@ -213,8 +218,10 @@ struct ItemRelevancePolicy {
 
     func cleanupReason(for item: LaterItem, at date: Date = .now) -> ItemCleanupReason? {
         guard !item.isCompleted, !item.isDuplicateCopy, item.statusRaw != "archived",
-              item.keepFromCleanup != true, !item.needsReview,
+              item.keepFromCleanup != true,
               item.snoozedUntil == nil || item.snoozedUntil! <= date else { return nil }
+        if item.likelyAccidental == true { return .likelyAccidental }
+        guard !item.needsReview else { return nil }
         // Lasting images and records should not receive deletion suggestions.
         let protectedKinds: Set<LaterKind> = [.photo, .meme, .recipe, .style, .home,
             .product, .book, .movie, .show, .music, .article, .document, .information]

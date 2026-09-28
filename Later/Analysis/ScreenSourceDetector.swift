@@ -44,9 +44,18 @@ struct ScreenSourceDetector {
         return ScreenDetection(
             surface: winner.0,
             sourceApp: winner.1,
+            sourceContext: winner.1 == .reddit ? redditCommunity(in: text) : nil,
             confidence: confidence,
             evidence: Array(winner.3.prefix(8))
         )
+    }
+
+    private func redditCommunity(in text: String) -> String? {
+        guard let range = text.range(
+            of: #"\br/[a-z0-9_]+\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) else { return nil }
+        return String(text[range])
     }
 
     private func lockScreenCandidate(

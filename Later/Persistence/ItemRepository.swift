@@ -241,6 +241,8 @@ struct ItemRepository {
         item.isVisualOnly = classification.usedVisualClassification
         item.screenSurfaceRaw = classification.screenDetection?.surface.rawValue
         item.sourceAppRaw = classification.screenDetection?.sourceApp.rawValue
+        item.sourceContext = classification.screenDetection?.sourceContext
+        item.likelyAccidental = classification.likelyAccidental
         item.screenDetectionConfidence = classification.screenDetection?.confidence
         item.screenDetectionEvidenceText = classification.screenDetection?.evidence.joined(separator: ", ")
         item.isOffer = classification.category == .offer || (classification.offerConfidence ?? 0) >= 0.5

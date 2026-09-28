@@ -317,6 +317,7 @@ private struct ScreenshotCleanupView: View {
 
     private func tagColor(_ reason: ItemCleanupReason) -> Color {
         switch reason {
+        case .likelyAccidental: .gray
         case .expired: .red
         case .datePassed: .orange
         case .old: .blue

@@ -121,6 +121,7 @@ struct ClassificationResult: Codable, Hashable {
     let visualModelAvailable: Bool?
     let usedVisualClassification: Bool?
     let screenDetection: ScreenDetection?
+    let likelyAccidental: Bool?
     let actionableEntities: [ActionableEntity]?
     let detectedMedia: DetectedMedia?
     let productDetails: DetectedProductDetails?
@@ -143,6 +144,7 @@ struct ClassificationResult: Codable, Hashable {
         visualModelAvailable: Bool? = nil,
         usedVisualClassification: Bool? = nil,
         screenDetection: ScreenDetection? = nil,
+        likelyAccidental: Bool? = nil,
         actionableEntities: [ActionableEntity]? = nil,
         detectedMedia: DetectedMedia? = nil,
         productDetails: DetectedProductDetails? = nil
@@ -164,6 +166,7 @@ struct ClassificationResult: Codable, Hashable {
         self.visualModelAvailable = visualModelAvailable
         self.usedVisualClassification = usedVisualClassification
         self.screenDetection = screenDetection
+        self.likelyAccidental = likelyAccidental
         self.actionableEntities = actionableEntities
         self.detectedMedia = detectedMedia
         self.productDetails = productDetails

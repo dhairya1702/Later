@@ -25,6 +25,7 @@ enum ScreenshotSourceApp: String, Codable, Hashable {
     case appleMaps
     case googleMaps
     case instagram
+    case linkedin
     case youtube
     case appleMusic
     case spotify
@@ -39,8 +40,23 @@ enum ScreenshotSourceApp: String, Codable, Hashable {
 struct ScreenDetection: Codable, Hashable {
     let surface: ScreenshotSurface
     let sourceApp: ScreenshotSourceApp
+    let sourceContext: String?
     let confidence: Double
     let evidence: [String]
+
+    init(
+        surface: ScreenshotSurface,
+        sourceApp: ScreenshotSourceApp,
+        sourceContext: String? = nil,
+        confidence: Double,
+        evidence: [String]
+    ) {
+        self.surface = surface
+        self.sourceApp = sourceApp
+        self.sourceContext = sourceContext
+        self.confidence = confidence
+        self.evidence = evidence
+    }
 
     static let unknown = ScreenDetection(
         surface: .unknown,

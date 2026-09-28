@@ -39,15 +39,26 @@ struct NotificationPlanner {
         // the app reconciles, and prevents repeated daily cleanup nudges.
         if let cleanupDate = calendar.nextDate(after: now, matching: DateComponents(hour: 18, minute: 0, weekday: 1), matchingPolicy: .nextTime),
            cleanupDate <= horizonEnd {
-            let candidates = allItems.filter { policy.cleanupReason(for: $0, at: cleanupDate) != nil }
+            let cleanupCandidates = allItems.filter { policy.cleanupReason(for: $0, at: cleanupDate) != nil }
+            let accidentalCandidates = cleanupCandidates.filter {
+                policy.cleanupReason(for: $0, at: cleanupDate) == .likelyAccidental
+            }
+            let candidates = accidentalCandidates.isEmpty ? cleanupCandidates : accidentalCandidates
             if let first = candidates.first {
+                let isAccidentalCleanup = !accidentalCandidates.isEmpty
                 result.append(LaterNotificationPlan(
                     identifier: "later.cleanup.\(dayKey(cleanupDate))",
                     itemID: first.id, relatedItemIDs: candidates.map(\.id), fireDate: cleanupDate,
-                    title: "Time for a little screenshot cleanup?",
-                    body: candidates.count == 1
-                        ? "You have a screenshot you may no longer need. Review it before deleting."
-                        : "You have \(candidates.count) screenshots you may no longer need. Review them before deleting.",
+                    title: isAccidentalCleanup
+                        ? "This looks like a mistake"
+                        : "Time for a little screenshot cleanup?",
+                    body: isAccidentalCleanup
+                        ? (candidates.count == 1
+                            ? "This screenshot looks accidental. You might want to delete it."
+                            : "\(candidates.count) screenshots look accidental. You might want to delete them.")
+                        : (candidates.count == 1
+                            ? "You have a screenshot you may no longer need. Review it before deleting."
+                            : "You have \(candidates.count) screenshots you may no longer need. Review them before deleting."),
                     isUrgent: false, isSummary: true, isCleanup: true
                 ))
             }

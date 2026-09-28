@@ -8,6 +8,7 @@ region="${GCP_REGION:-us-central1}"
 service_name="${GCP_SERVICE_NAME:-later-analysis}"
 model="${GEMINI_MODEL:-gemini-2.5-flash-lite}"
 service_account_name="${GCP_SERVICE_ACCOUNT:-later-analysis}"
+local_config="$repo_root/Later/Configuration/CloudConfig.local.xcconfig"
 
 if [[ -z "$project_id" || "$project_id" == "(unset)" ]]; then
   echo "Usage: ./tools/vision-spike/deploy-gcp.sh YOUR_GCP_PROJECT_ID" >&2
@@ -19,7 +20,11 @@ if ! command -v gcloud >/dev/null 2>&1; then
   exit 1
 fi
 
-api_token="${LATER_API_TOKEN:-$(openssl rand -hex 32)}"
+existing_api_token=""
+if [[ -f "$local_config" ]]; then
+  existing_api_token="$(sed -n 's/^LATER_ANALYSIS_TOKEN = //p' "$local_config" | head -n 1)"
+fi
+api_token="${LATER_API_TOKEN:-${existing_api_token:-$(openssl rand -hex 32)}}"
 service_account_email="${service_account_name}@${project_id}.iam.gserviceaccount.com"
 project_number="$(gcloud projects describe "$project_id" --format='value(projectNumber)')"
 build_service_account="${project_number}-compute@developer.gserviceaccount.com"
@@ -73,8 +78,6 @@ service_url="$(gcloud run services describe "$service_name" \
   --region "$region" \
   --format='value(status.url)')"
 service_host="${service_url#https://}"
-local_config="$repo_root/Later/Configuration/CloudConfig.local.xcconfig"
-
 umask 077
 printf 'LATER_VISION_BASE_URL = https:/$()/%s\nLATER_ANALYSIS_TOKEN = %s\n' \
   "$service_host" "$api_token" > "$local_config"
