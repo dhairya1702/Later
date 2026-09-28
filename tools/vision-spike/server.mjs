@@ -11,6 +11,7 @@ import {
   parseOutput,
   requireProviderConfiguration,
 } from "./analyze.mjs";
+import { sendAnalysisCompletePush } from "./apns.mjs";
 
 const host = "0.0.0.0";
 const port = Number(process.env.PORT || process.env.LATER_VISION_PORT || 8080);
@@ -48,7 +49,24 @@ const server = createServer(async (request, response) => {
       return parseOutput(upstream);
     });
     console.log(`${analysis.category}/${analysis.kind} (${Date.now() - startedAt}ms)`);
-    return sendJSON(response, 200, { analysis });
+    let pushSent = false;
+    const deviceToken = request.headers["x-later-push-token"];
+    const itemID = request.headers["x-later-item-id"];
+    if (typeof deviceToken === "string" && typeof itemID === "string") {
+      try {
+        pushSent = await sendAnalysisCompletePush({
+          deviceToken,
+          environment: request.headers["x-later-apns-environment"],
+          itemID,
+          title: analysis.title,
+        });
+      } catch (error) {
+        console.error(`Push delivery failed: ${error.message}`);
+      }
+    }
+    return sendJSON(response, 200, { analysis }, {
+      "X-Later-Push-Sent": pushSent ? "true" : "false",
+    });
   } catch (error) {
     console.error(error.message);
     const status = error.code === "PAYLOAD_TOO_LARGE" ? 413 : 502;
@@ -100,12 +118,13 @@ async function withRetry(operation) {
   throw lastError;
 }
 
-function sendJSON(response, status, value) {
+function sendJSON(response, status, value, extraHeaders = {}) {
   const body = JSON.stringify(value);
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
     "Cache-Control": "no-store",
+    ...extraHeaders,
   });
   response.end(body);
 }

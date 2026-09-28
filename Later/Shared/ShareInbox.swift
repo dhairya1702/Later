@@ -4,6 +4,8 @@ import UIKit
 
 enum ShareInboxConfiguration {
     static let appGroup = "group.com.dhairyalalwani.Later"
+    static let pushTokenKey = "push.apnsDeviceToken"
+    static let apnsEnvironmentKey = "push.apnsEnvironment"
 }
 
 struct ShareInboxRecord: Codable, Identifiable {

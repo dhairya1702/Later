@@ -335,6 +335,11 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         if settings.authorizationStatus == .notDetermined {
             _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
         }
+        let updatedSettings = await center.notificationSettings()
+        if updatedSettings.authorizationStatus == .authorized ||
+            updatedSettings.authorizationStatus == .provisional {
+            UIApplication.shared.registerForRemoteNotifications()
+        }
         await reconcile()
     }
 

@@ -149,3 +149,124 @@ struct VisionBridgeClient {
         return try JSONDecoder().decode(VisionBridgeEnvelope.self, from: responseData).analysis
     }
 }
+
+/// Owns the system background upload used by the share extension. iOS continues
+/// this transfer after the share sheet dismisses and relaunches the containing app
+/// to deliver the response when necessary.
+final class ShareAnalysisUploadManager: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate {
+    static let shared = ShareAnalysisUploadManager()
+    static let sessionIdentifier = "com.dhairyalalwani.Later.share-analysis"
+
+    private let lock = NSLock()
+    private var responseData: [Int: Data] = [:]
+    private var pushDelivery: [Int: Bool] = [:]
+    private var backgroundEventsCompletionHandler: (() -> Void)?
+
+    private lazy var session: URLSession = {
+        let configuration = URLSessionConfiguration.background(
+            withIdentifier: Self.sessionIdentifier
+        )
+        configuration.sharedContainerIdentifier = ShareInboxConfiguration.appGroup
+        configuration.sessionSendsLaunchEvents = true
+        configuration.isDiscretionary = false
+        return URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+    }()
+
+    private override init() {
+        super.init()
+    }
+
+    func upload(_ record: ShareInboxRecord) throws {
+        let store = ShareInboxStore()
+        var request = try VisionBridgeClient().makeRequest(
+            contentType: "image/png",
+            timeout: 180
+        )
+        request.setValue(record.id.uuidString, forHTTPHeaderField: "X-Later-Item-ID")
+
+        let defaults = UserDefaults(suiteName: ShareInboxConfiguration.appGroup)
+        if let token = defaults?.string(forKey: ShareInboxConfiguration.pushTokenKey),
+           !token.isEmpty {
+            request.setValue(token, forHTTPHeaderField: "X-Later-Push-Token")
+            request.setValue(
+                defaults?.string(forKey: ShareInboxConfiguration.apnsEnvironmentKey) ?? "production",
+                forHTTPHeaderField: "X-Later-APNS-Environment"
+            )
+        }
+
+        let task = session.uploadTask(
+            with: request,
+            fromFile: store.imageURL(filename: record.imageFilename)
+        )
+        task.taskDescription = record.id.uuidString
+        task.resume()
+    }
+
+    func handleEvents(completionHandler: @escaping () -> Void) {
+        lock.lock()
+        backgroundEventsCompletionHandler = completionHandler
+        lock.unlock()
+        _ = session
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
+        lock.lock()
+        responseData[dataTask.taskIdentifier] = Data()
+        if let httpResponse = response as? HTTPURLResponse {
+            pushDelivery[dataTask.taskIdentifier] =
+                httpResponse.value(forHTTPHeaderField: "X-Later-Push-Sent") == "true"
+        }
+        lock.unlock()
+        completionHandler(.allow)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive data: Data
+    ) {
+        lock.lock()
+        responseData[dataTask.taskIdentifier, default: Data()].append(data)
+        lock.unlock()
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didCompleteWithError error: Error?
+    ) {
+        lock.lock()
+        let data = responseData.removeValue(forKey: task.taskIdentifier)
+        let pushWasSent = pushDelivery.removeValue(forKey: task.taskIdentifier) ?? false
+        lock.unlock()
+
+        guard let rawID = task.taskDescription, let id = UUID(uuidString: rawID) else { return }
+        let store = ShareInboxStore()
+        guard var record = try? store.records().first(where: { $0.id == id }) else { return }
+
+        do {
+            if let error { throw error }
+            guard let data else { throw VisionBridgeClientError.invalidResponse }
+            record.analysis = try VisionBridgeClient().decode(data, response: task.response)
+            record.lastError = nil
+            record.notificationDelivered = pushWasSent
+            try store.save(record)
+        } catch {
+            record.lastError = error.localizedDescription
+            try? store.save(record)
+        }
+    }
+
+    func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
+        lock.lock()
+        let completionHandler = backgroundEventsCompletionHandler
+        backgroundEventsCompletionHandler = nil
+        lock.unlock()
+        DispatchQueue.main.async { completionHandler?() }
+    }
+}

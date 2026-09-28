@@ -1,13 +1,7 @@
 import UIKit
 import UniformTypeIdentifiers
-import UserNotifications
-
-/// Keeps the extension alive until the screenshot is fully saved.
-///
-/// The previous design queued the image, dismissed immediately and relied on iOS
-/// waking the host app after a background upload. iOS makes no such guarantee, so
-/// the notification frequently waited until the app was opened by hand. Staying on
-/// screen for the few seconds vision needs is slower to look at but always lands.
+/// Saves the screenshot locally, hands its upload to iOS, and dismisses. The
+/// analysis service sends an APNs notification when understanding is complete.
 final class ShareViewController: UIViewController {
     private enum Phase {
         case reading
@@ -17,7 +11,8 @@ final class ShareViewController: UIViewController {
 
         var headline: String {
             switch self {
-            case .reading, .analyzing: "Saving to Later…"
+            case .reading: "Saving to Later…"
+            case .analyzing: "Sending to Later…"
             case .saved: "Saved to Later"
             case .failed: "Couldn’t save to Later"
             }
@@ -26,7 +21,7 @@ final class ShareViewController: UIViewController {
         var detail: String {
             switch self {
             case .reading: "Reading the screenshot"
-            case .analyzing: "Understanding what’s in it"
+            case .analyzing: "This will continue in the background"
             case .saved(let title): title
             case .failed(let message): message
             }
@@ -80,21 +75,12 @@ final class ShareViewController: UIViewController {
             guard var saved = record else { throw ShareExtensionError.invalidImage }
 
             apply(.analyzing)
-            let analysis = try await VisionBridgeClient().analyze(
-                data: try store.imageData(for: saved),
-                contentType: "image/png",
-                timeout: 45
-            )
-            saved.analysis = analysis
             saved.lastError = nil
             try store.save(saved)
+            try ShareAnalysisUploadManager.shared.upload(saved)
 
-            saved.notificationDelivered = await deliverNotification(for: saved)
-            record = saved
-            try? store.save(saved)
-
-            apply(.saved(analysis.title))
-            try? await Task.sleep(for: .milliseconds(650))
+            apply(.saved("We’ll notify you when it’s ready"))
+            try? await Task.sleep(for: .milliseconds(350))
             finish()
         } catch {
             // Once the image is on disk the screenshot is never lost: the app retries
@@ -104,7 +90,7 @@ final class ShareViewController: UIViewController {
                 queued.lastError = error.localizedDescription
                 try? store.save(queued)
             }
-            apply(.failed(isQueued ? "Later will finish this when you open the app." : error.localizedDescription))
+            apply(.failed(isQueued ? "Queued—Later will retry when opened." : error.localizedDescription))
             try? await Task.sleep(for: .milliseconds(isQueued ? 900 : 1400))
             if isQueued {
                 finish()
@@ -135,38 +121,6 @@ final class ShareViewController: UIViewController {
         }
         guard let image = UIImage(data: data) else { throw ShareExtensionError.invalidImage }
         return (data, image)
-    }
-
-    /// Announces the finished save from the extension itself. The host app imports
-    /// the record into SwiftData later; the identifier it will use is the record id,
-    /// so tapping the notification still resolves to the right item.
-    private func deliverNotification(for record: ShareInboxRecord) async -> Bool {
-        guard let analysis = record.analysis else { return false }
-        let center = UNUserNotificationCenter.current()
-        let settings = await center.notificationSettings()
-        guard settings.authorizationStatus == .authorized ||
-                settings.authorizationStatus == .provisional else { return false }
-
-        let content = UNMutableNotificationContent()
-        content.title = "Saved to Later"
-        content.body = analysis.title
-        content.sound = .default
-        content.categoryIdentifier = "later.item"
-        content.userInfo = [
-            "itemID": record.id.uuidString,
-            "itemIDs": [record.id.uuidString]
-        ]
-        let request = UNNotificationRequest(
-            identifier: "later.share.\(record.id.uuidString)",
-            content: content,
-            trigger: nil
-        )
-        do {
-            try await center.add(request)
-            return true
-        } catch {
-            return false
-        }
     }
 
     private func finish() {

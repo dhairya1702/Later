@@ -4,10 +4,15 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 project_id="${1:-$(gcloud config get-value project 2>/dev/null)}"
+required_account="${GCP_DEPLOY_ACCOUNT:-dhairya.lalwani2001@gmail.com}"
 region="${GCP_REGION:-us-central1}"
 service_name="${GCP_SERVICE_NAME:-later-analysis}"
 model="${GEMINI_MODEL:-gemini-2.5-flash-lite}"
 service_account_name="${GCP_SERVICE_ACCOUNT:-later-analysis}"
+apns_secret_name="${APNS_SECRET_NAME:-later-apns-private-key}"
+apns_key_id="${APNS_KEY_ID:-JUGJUPBAHM}"
+apns_team_id="${APNS_TEAM_ID:-X34H6AHCUU}"
+apns_topic="${APNS_TOPIC:-com.dhairyalalwani.Later}"
 local_config="$repo_root/Later/Configuration/CloudConfig.local.xcconfig"
 
 if [[ -z "$project_id" || "$project_id" == "(unset)" ]]; then
@@ -17,6 +22,19 @@ fi
 
 if ! command -v gcloud >/dev/null 2>&1; then
   echo "gcloud is required. Install the Google Cloud CLI and run: gcloud auth login" >&2
+  exit 1
+fi
+
+active_account="$(gcloud config get-value account 2>/dev/null)"
+if [[ "$active_account" != "$required_account" ]]; then
+  echo "Refusing to deploy from GCP account: $active_account" >&2
+  echo "Required account: $required_account" >&2
+  echo "Run: gcloud config set account $required_account" >&2
+  exit 1
+fi
+
+if [[ "$project_id" != "project-a5ac77cc-c119-47d6-bb4" ]]; then
+  echo "Refusing to deploy to unexpected GCP project: $project_id" >&2
   exit 1
 fi
 
@@ -34,6 +52,7 @@ gcloud services enable \
   aiplatform.googleapis.com \
   artifactregistry.googleapis.com \
   cloudbuild.googleapis.com \
+  secretmanager.googleapis.com \
   run.googleapis.com \
   --project "$project_id"
 
@@ -48,6 +67,18 @@ gcloud projects add-iam-policy-binding "$project_id" \
   --member "serviceAccount:${service_account_email}" \
   --role roles/aiplatform.user \
   --condition=None \
+  --quiet >/dev/null
+
+if ! gcloud secrets describe "$apns_secret_name" --project "$project_id" >/dev/null 2>&1; then
+  echo "Missing Secret Manager secret: $apns_secret_name" >&2
+  echo "Create it from the Apple APNs .p8 key before deploying." >&2
+  exit 1
+fi
+
+gcloud secrets add-iam-policy-binding "$apns_secret_name" \
+  --project "$project_id" \
+  --member "serviceAccount:${service_account_email}" \
+  --role roles/secretmanager.secretAccessor \
   --quiet >/dev/null
 
 # New GCP projects no longer grant the default source-build identity broad
@@ -71,7 +102,8 @@ gcloud run deploy "$service_name" \
   --memory 512Mi \
   --timeout 180 \
   --port 8080 \
-  --set-env-vars "AI_PROVIDER=vertex,GOOGLE_CLOUD_PROJECT=${project_id},VERTEX_LOCATION=${region},GEMINI_MODEL=${model},LATER_API_TOKEN=${api_token}"
+  --set-env-vars "AI_PROVIDER=vertex,GOOGLE_CLOUD_PROJECT=${project_id},VERTEX_LOCATION=${region},GEMINI_MODEL=${model},LATER_API_TOKEN=${api_token},APNS_KEY_ID=${apns_key_id},APNS_TEAM_ID=${apns_team_id},APNS_TOPIC=${apns_topic}" \
+  --set-secrets "APNS_PRIVATE_KEY=${apns_secret_name}:latest"
 
 service_url="$(gcloud run services describe "$service_name" \
   --project "$project_id" \
