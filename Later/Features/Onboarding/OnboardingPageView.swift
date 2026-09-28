@@ -2,7 +2,6 @@ import SwiftUI
 
 enum OnboardingIllustration {
     case cards
-    case facts
     case privacy
 }
 
@@ -45,13 +44,6 @@ struct OnboardingPageView: View {
                 SampleCard(title: "Home idea", detail: "Inspiration", icon: "sparkles", color: Color.accentColor)
                     .offset(y: -35)
             }
-        case .facts:
-            VStack(spacing: 12) {
-                FactPill(icon: "calendar", text: "Friday, October 15")
-                FactPill(icon: "clock.fill", text: "7:30 PM")
-                FactPill(icon: "tag.fill", text: "25% off · SAVE25")
-                FactPill(icon: "mappin.circle.fill", text: "United Center")
-            }
         case .privacy:
             ZStack {
                 Circle().fill(Color.accentColor.opacity(0.14)).frame(width: 220, height: 220)
@@ -80,20 +72,5 @@ private struct SampleCard: View {
         .padding(18)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22))
         .shadow(color: color.opacity(0.16), radius: 18, y: 8)
-    }
-}
-
-private struct FactPill: View {
-    let icon: String
-    let text: String
-
-    var body: some View {
-        Label(text, systemImage: icon)
-            .font(.headline)
-            .foregroundStyle(.primary, Color.accentColor)
-            .frame(maxWidth: 270, alignment: .leading)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 13)
-            .background(.regularMaterial, in: Capsule())
     }
 }

@@ -103,7 +103,7 @@ extension VisionAnalysis {
             discountTexts: facts.discountText.map { [$0] } ?? [],
             couponCodes: facts.couponCode.map { [$0] } ?? [],
             primaryDateRole: facts.dateRole.flatMap(ImportantDateRole.init(rawValue:)),
-            primaryDate: nil
+            primaryDate: ItemRelevancePolicy.explicitDate(facts.dateText, time: facts.timeText)
         )
         let scores = LaterCategory.allCases.map {
             CategoryClassificationScore(

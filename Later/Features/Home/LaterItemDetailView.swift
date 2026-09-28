@@ -6,10 +6,11 @@ import Photos
 import SwiftData
 import SwiftUI
 import UIKit
+import OSLog
 
 struct LaterItemDetailView: View {
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.openURL) private var openURL
     @Query(sort: \LaterItem.createdAt, order: .reverse) private var allItems: [LaterItem]
     @Bindable var item: LaterItem
     @State private var image: UIImage?
@@ -19,15 +20,23 @@ struct LaterItemDetailView: View {
     @State private var showingDeleteConfirmation = false
     @State private var deletionError: String?
     @State private var showingFullScreenshot = false
-    @State private var showingReminderChoices = false
-    @State private var showingCustomReminder = false
     @State private var customReminderDate = Date.now.addingTimeInterval(60 * 60)
     @State private var actionError: String?
+    @State private var actionStatus: String?
+    @State private var displayedItemID: UUID?
     @State private var calendarEvent: EKEvent?
-    @State private var showingCalendarEditor = false
     @State private var contactDraft: CNMutableContact?
-    @State private var showingContactEditor = false
+    @State private var activeSheet: DetailSheet?
     @State private var eventStore = EKEventStore()
+
+    private enum DetailSheet: String, Identifiable {
+        case reminderChoices
+        case customReminder
+        case calendar
+        case contact
+
+        var id: String { rawValue }
+    }
 
     var body: some View {
         ScrollView {
@@ -36,6 +45,12 @@ struct LaterItemDetailView: View {
 
                 if !contextualActions.isEmpty {
                     contextualActionButtons
+                }
+                if let actionStatus {
+                    Text(actionStatus)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("actionStatus")
                 }
 
                 if let media = item.detectedMedia {
@@ -56,19 +71,33 @@ struct LaterItemDetailView: View {
                     toggleCompletion()
                 } label: {
                     Label(
-                        item.isCompleted ? "Move back to Later" : item.category.completedStatusLabel,
-                        systemImage: item.isCompleted ? "arrow.uturn.backward.circle" : "checkmark.circle.fill"
+                        item.isCompleted ? "Mark as not done" : "Mark as done",
+                        systemImage: item.isCompleted ? "circle" : "checkmark.circle.fill"
                     )
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .tint(item.isCompleted ? .orange : .green)
+
+                Button(role: .destructive) {
+                    pendingDeletion = [item]
+                    showingDeleteConfirmation = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
             }
             .padding()
         }
         .navigationTitle(item.kind == .other ? "Screenshot" : item.kind.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { displayedItemID = item.id }
+        .onChange(of: allItems.map(\.id)) { _, identifiers in
+            if let displayedItemID, !identifiers.contains(displayedItemID) { dismiss() }
+        }
         .task(id: item.screenshotAssetIdentifier) { await loadImage() }
         .confirmationDialog(
             pendingDeletion.count == 1 ? "Delete this screenshot?" : "Delete extra screenshots?",
@@ -76,7 +105,7 @@ struct LaterItemDetailView: View {
             titleVisibility: .visible
         ) {
             Button(
-                pendingDeletion.count == 1 ? "Delete from Photos" : "Delete \(pendingDeletion.count) from Photos",
+                pendingDeletion.contains(where: \.hasPhotoLibraryAsset) ? "Delete from Later and Photos" : "Delete from Later",
                 role: .destructive
             ) {
                 let targets = pendingDeletion
@@ -84,7 +113,9 @@ struct LaterItemDetailView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("iOS will ask you to confirm. Deleted screenshots remain recoverable in Photos → Recently Deleted.")
+            Text(pendingDeletion.contains(where: \.hasPhotoLibraryAsset)
+                ? "This removes the selected screenshot and its details from Later and deletes the original from Photos. iOS will ask you to confirm. The original is recoverable in Photos → Recently Deleted."
+                : "This removes the saved image and its details from Later. No original in Photos is linked to this save.")
         }
         .alert("Couldn’t delete screenshots", isPresented: deletionErrorIsPresented) {
             Button("OK") { deletionError = nil }
@@ -96,51 +127,31 @@ struct LaterItemDetailView: View {
                 FullScreenScreenshotView(image: image)
             }
         }
-        .confirmationDialog("Remind me", isPresented: $showingReminderChoices) {
-            Button("Tonight") { Task { await saveReminder(at: reminderDate(.tonight)) } }
-            Button("Tomorrow") { Task { await saveReminder(at: reminderDate(.tomorrow)) } }
-            Button("This Weekend") { Task { await saveReminder(at: reminderDate(.weekend)) } }
-            Button("Choose Date & Time…") {
-                customReminderDate = max(Date.now.addingTimeInterval(60 * 15), item.detectedDate ?? .now)
-                showingCustomReminder = true
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-        .sheet(isPresented: $showingCustomReminder) {
-            NavigationStack {
-                Form {
-                    DatePicker(
-                        "Remind me",
-                        selection: $customReminderDate,
-                        in: Date.now...,
-                        displayedComponents: [.date, .hourAndMinute]
-                    )
-                }
-                .navigationTitle("Custom Reminder")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { showingCustomReminder = false }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Add") {
-                            let date = customReminderDate
-                            showingCustomReminder = false
-                            Task { await saveReminder(at: date) }
-                        }
+        .sheet(item: $activeSheet, onDismiss: clearFinishedSheetData) { sheet in
+            switch sheet {
+            case .reminderChoices:
+                ReminderChoiceSheet(
+                    choose: { choice in
+                        activeSheet = nil
+                        Task { await saveReminder(at: reminderDate(choice)) }
+                    },
+                    chooseCustom: { openCustomReminderAfterDismissal() }
+                )
+                .presentationDetents([.height(340)])
+            case .customReminder:
+                customReminderSheet
+            case .calendar:
+                if let calendarEvent {
+                    CalendarEventEditor(event: calendarEvent, eventStore: eventStore) {
+                        activeSheet = nil
                     }
                 }
-            }
-            .presentationDetents([.medium])
-        }
-        .sheet(isPresented: $showingCalendarEditor, onDismiss: { calendarEvent = nil }) {
-            if let calendarEvent {
-                CalendarEventEditor(event: calendarEvent, eventStore: eventStore)
-            }
-        }
-        .sheet(isPresented: $showingContactEditor, onDismiss: { contactDraft = nil }) {
-            if let contactDraft {
-                NewContactEditor(contact: contactDraft)
+            case .contact:
+                if let contactDraft {
+                    NewContactEditor(contact: contactDraft) {
+                        activeSheet = nil
+                    }
+                }
             }
         }
         .alert("Couldn’t complete action", isPresented: actionErrorIsPresented) {
@@ -148,6 +159,49 @@ struct LaterItemDetailView: View {
         } message: {
             Text(actionError ?? "Please try again.")
         }
+    }
+
+    private var customReminderSheet: some View {
+        NavigationStack {
+            Form {
+                DatePicker(
+                    "Remind me",
+                    selection: $customReminderDate,
+                    in: Date.now...,
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+            }
+            .navigationTitle("Custom Reminder")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { activeSheet = nil }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        let date = customReminderDate
+                        activeSheet = nil
+                        Task { await saveReminder(at: date) }
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func openCustomReminderAfterDismissal() {
+        activeSheet = nil
+        customReminderDate = max(Date.now.addingTimeInterval(60 * 15), item.detectedDate ?? .now)
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
+            activeSheet = .customReminder
+        }
+    }
+
+    private func clearFinishedSheetData() {
+        guard activeSheet == nil else { return }
+        calendarEvent = nil
+        contactDraft = nil
     }
 
     private var screenshotPreview: some View {
@@ -273,19 +327,28 @@ struct LaterItemDetailView: View {
             ForEach(contextualActions) { action in
                 let isCopied = copiedActionValue == action.value && action.kind == .copyCode
                 Button {
+                    actionStatus = nil
+                    recordAction("\(action.kind.label) tapped")
                     perform(action)
                 } label: {
-                    // The colour belongs to the action, never to the screenshot's
-                    // category. A Message button stays blue whether the screenshot
-                    // was classified as Food or Shopping.
-                    ActionCircle(fill: action.kind.tint) {
-                        Image(systemName: isCopied ? "checkmark" : action.kind.icon)
-                            .font(.system(size: ActionMetrics.glyphSize, weight: .semibold))
-                            .foregroundStyle(.white)
+                    VStack(spacing: 7) {
+                        ActionCircle(fill: action.kind.tint) {
+                            Image(systemName: isCopied ? "checkmark" : action.kind.icon)
+                                .font(.system(size: ActionMetrics.glyphSize, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                        Text(isCopied ? "Copied" : action.kind.label)
+                            .font(.caption2.weight(.semibold))
+                            .lineLimit(1)
+                            .foregroundStyle(.primary)
                     }
+                    .frame(width: 78, height: 82)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .frame(width: 78, height: 82)
                 .accessibilityLabel(isCopied ? "Copied" : action.kind.label)
+                .accessibilityIdentifier("action.\(action.kind.rawValue)")
             }
         }
     }
@@ -366,14 +429,11 @@ struct LaterItemDetailView: View {
             return
         }
 
-        if let appURL = links.app {
-            UIApplication.shared.open(appURL, options: [:]) { accepted in
-                guard !accepted else { return }
-                DispatchQueue.main.async { openURL(links.web) }
-            }
-        } else {
-            openURL(links.web)
-        }
+        openExternalAction(
+            links.app ?? links.web,
+            name: destination.accessibilityName,
+            fallback: links.app == nil ? nil : links.web
+        )
     }
 
     private func mediaAccessibilityLabel(
@@ -386,25 +446,27 @@ struct LaterItemDetailView: View {
     private func perform(_ action: ContextualItemAction) {
         switch action.kind {
         case .message:
-            if let url = URL(string: "sms:\(action.value)") { openURL(url) }
+            openPhoneAction(scheme: "sms", value: action.value, name: "Message")
         case .call:
-            if let url = URL(string: "tel:\(action.value)") { openURL(url) }
+            openPhoneAction(scheme: "tel", value: action.value, name: "Call")
         case .email:
             var components = URLComponents()
             components.scheme = "mailto"
             components.path = action.value
-            if let url = components.url { openURL(url) }
+            openExternalAction(components.url, name: "Mail")
         case .openLink:
-            if let url = URL(string: action.value) { openURL(url) }
+            openExternalAction(URL(string: action.value), name: "Link")
         case .maps:
             var components = URLComponents(string: "https://maps.apple.com/")
             components?.queryItems = [URLQueryItem(name: "q", value: action.value)]
-            if let url = components?.url { openURL(url) }
+            openExternalAction(components?.url, name: "Maps")
         case .copyCode:
             UIPasteboard.general.string = action.value
             copiedActionValue = action.value
+            actionStatus = "Code copied"
         case .reminder:
-            showingReminderChoices = true
+            actionStatus = "Reminder options opened"
+            activeSheet = .reminderChoices
         case .calendar:
             Task { await prepareCalendarEvent() }
         case .contact:
@@ -412,12 +474,55 @@ struct LaterItemDetailView: View {
         }
     }
 
+    private func openPhoneAction(scheme: String, value: String, name: String) {
+        let logger = Logger(subsystem: "com.dhairyalalwani.Later", category: "ActionButtons")
+        logger.notice("Action tapped: \(name, privacy: .public)")
+        guard let url = URL(string: "\(scheme):\(value)") else {
+            logger.error("Action URL could not be constructed: \(name, privacy: .public)")
+            actionError = "The saved phone number couldn’t be opened."
+            recordAction("\(name): invalid saved link")
+            return
+        }
+        openExternalAction(url, name: name)
+    }
+
+    private func openExternalAction(_ url: URL?, name: String, fallback: URL? = nil) {
+        guard let url else {
+            actionError = "Later couldn’t create the \(name) link."
+            recordAction("\(name): invalid link")
+            return
+        }
+        UIApplication.shared.open(url, options: [:]) { accepted in
+            DispatchQueue.main.async {
+                if accepted {
+                    actionStatus = "Opened \(name)"
+                    recordAction("\(name): iOS accepted the link")
+                } else if let fallback {
+                    openExternalAction(fallback, name: name)
+                } else {
+                    actionError = "iOS couldn’t open \(name) for this screenshot."
+                    recordAction("\(name): iOS rejected the link")
+                }
+            }
+        }
+    }
+
+    private func recordAction(_ message: String) {
+        // Persist only action names/results, never phone numbers or screenshot data.
+        guard let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let url = directory.appendingPathComponent("action-diagnostics.txt")
+        let previous = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        let lines = previous.split(separator: "\n").suffix(39).map(String.init)
+        let entry = "\(Date.now.ISO8601Format()) \(message)"
+        try? (lines + [entry]).joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+    }
+
     private var canAddToCalendar: Bool {
         guard item.detectedDate != nil, let role = item.meaningfulDateRole else { return false }
         return [.event, .reservation, .travel].contains(role)
     }
 
-    private enum ReminderChoice { case tonight, tomorrow, weekend }
+    fileprivate enum ReminderChoice { case tonight, tomorrow, weekend }
 
     private func reminderDate(_ choice: ReminderChoice, now: Date = .now) -> Date {
         let calendar = Calendar.current
@@ -454,6 +559,8 @@ struct LaterItemDetailView: View {
                 from: date
             )
             try eventStore.save(reminder, commit: true)
+            actionStatus = "Reminder added"
+            recordAction("Reminder: saved")
         } catch {
             actionError = error.localizedDescription
         }
@@ -489,7 +596,7 @@ struct LaterItemDetailView: View {
             event.url = firstDetectedURL
             event.calendar = eventStore.defaultCalendarForNewEvents
             calendarEvent = event
-            showingCalendarEditor = true
+            activeSheet = .calendar
         } catch {
             actionError = error.localizedDescription
         }
@@ -513,7 +620,7 @@ struct LaterItemDetailView: View {
             CNLabeledValue(label: CNLabelWork, value: $0.value as NSString)
         }
         contactDraft = contact
-        showingContactEditor = true
+        activeSheet = .contact
     }
 
     private var relatedScreenshots: [LaterItem] {
@@ -523,17 +630,6 @@ struct LaterItemDetailView: View {
 
     private var relatedScreenshotsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Related screenshots")
-                        .font(.headline)
-                    Text("Later only groups very close matches. Review them before deleting.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-
             ForEach(relatedScreenshots) { relatedItem in
                 RelatedScreenshotRow(item: relatedItem) {
                     pendingDeletion = [relatedItem]
@@ -662,6 +758,7 @@ struct LaterItemDetailView: View {
         item.statusRaw = item.isCompleted ? "completed" : "open"
         item.updatedAt = .now
         try? modelContext.save()
+        Task { await NotificationManager.shared.reconcile() }
     }
 
     private var deletionErrorIsPresented: Binding<Bool> {
@@ -680,37 +777,37 @@ struct LaterItemDetailView: View {
 
     @MainActor
     private func deleteScreenshots(_ targets: [LaterItem]) async {
-        let identifiers = targets.compactMap(\.photoLibraryAssetIdentifier)
-        guard !identifiers.isEmpty else { return }
-        let assets = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: nil)
-
+        let deletingCurrentItem = targets.contains { $0.id == item.id }
         do {
-            try await PHPhotoLibrary.shared().performChanges {
-                PHAssetChangeRequest.deleteAssets(assets)
-            }
-
-            let deletedIDs = Set(targets.map(\.id))
-            for target in targets { modelContext.delete(target) }
-
-            let records = try modelContext.fetch(FetchDescriptor<ScreenshotRecord>())
-            for record in records where identifiers.contains(record.assetIdentifier) {
-                modelContext.delete(record)
-            }
-
-            let remaining = relatedScreenshots.filter { !deletedIDs.contains($0.id) }
-            item.relatedCopyCount = remaining.count
-            if remaining.isEmpty {
-                item.duplicateGroupID = nil
-                item.duplicateMatchRaw = nil
-            } else {
-                item.duplicateMatchRaw = remaining.contains {
-                    $0.duplicateMatchRaw == ScreenshotMatchKind.duplicate.rawValue
-                } ? ScreenshotMatchKind.duplicate.rawValue : ScreenshotMatchKind.similar.rawValue
-            }
-            try modelContext.save()
+            try await ItemDeletionService(context: modelContext).delete(targets)
             pendingDeletion = []
+            if deletingCurrentItem { dismiss() }
         } catch {
             deletionError = error.localizedDescription
+        }
+    }
+}
+
+private struct ReminderChoiceSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let choose: (LaterItemDetailView.ReminderChoice) -> Void
+    let chooseCustom: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Button("Tonight") { choose(.tonight) }
+                Button("Tomorrow") { choose(.tomorrow) }
+                Button("This Weekend") { choose(.weekend) }
+                Button("Choose Date & Time…", action: chooseCustom)
+            }
+            .navigationTitle("Remind me")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
         }
     }
 }
@@ -811,9 +908,9 @@ private struct ActionGrid<Content: View>: View {
 
     var body: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 52, maximum: 56), spacing: 12)],
+            columns: [GridItem(.adaptive(minimum: 78, maximum: 82), spacing: 10)],
             alignment: .leading,
-            spacing: 12
+            spacing: 8
         ) {
             content
         }
@@ -912,8 +1009,9 @@ private struct ZoomableImage: UIViewRepresentable {
 private struct CalendarEventEditor: UIViewControllerRepresentable {
     let event: EKEvent
     let eventStore: EKEventStore
+    let onComplete: () -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeCoordinator() -> Coordinator { Coordinator(onComplete: onComplete) }
 
     func makeUIViewController(context: Context) -> EKEventEditViewController {
         let controller = EKEventEditViewController()
@@ -926,19 +1024,26 @@ private struct CalendarEventEditor: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: EKEventEditViewController, context: Context) {}
 
     final class Coordinator: NSObject, EKEventEditViewDelegate {
+        let onComplete: () -> Void
+
+        init(onComplete: @escaping () -> Void) {
+            self.onComplete = onComplete
+        }
+
         func eventEditViewController(
             _ controller: EKEventEditViewController,
             didCompleteWith action: EKEventEditViewAction
         ) {
-            controller.dismiss(animated: true)
+            onComplete()
         }
     }
 }
 
 private struct NewContactEditor: UIViewControllerRepresentable {
     let contact: CNMutableContact
+    let onComplete: () -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeCoordinator() -> Coordinator { Coordinator(onComplete: onComplete) }
 
     func makeUIViewController(context: Context) -> UINavigationController {
         let controller = CNContactViewController(forNewContact: contact)
@@ -950,11 +1055,17 @@ private struct NewContactEditor: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: UINavigationController, context: Context) {}
 
     final class Coordinator: NSObject, CNContactViewControllerDelegate {
+        let onComplete: () -> Void
+
+        init(onComplete: @escaping () -> Void) {
+            self.onComplete = onComplete
+        }
+
         func contactViewController(
             _ viewController: CNContactViewController,
             didCompleteWith contact: CNContact?
         ) {
-            viewController.dismiss(animated: true)
+            onComplete()
         }
     }
 }
@@ -963,6 +1074,7 @@ private struct RelatedScreenshotRow: View {
     @Bindable var item: LaterItem
     let deleteAction: () -> Void
     @State private var image: UIImage?
+    @State private var isLoading = true
 
     var body: some View {
         HStack(spacing: 12) {
@@ -972,8 +1084,12 @@ private struct RelatedScreenshotRow: View {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
-                } else {
+                } else if isLoading {
                     ProgressView()
+                } else {
+                    Image(systemName: "photo.slash")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
                 }
             }
             .frame(width: 62, height: 88)
@@ -985,9 +1101,6 @@ private struct RelatedScreenshotRow: View {
                     .foregroundStyle(matchKind == .duplicate ? Color.purple : Color.orange)
                 Text(item.createdAt.formatted(date: .abbreviated, time: .shortened))
                     .font(.subheadline)
-                Text(matchKind == .duplicate ? "Very close visual match" : "Possible variation")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             Spacer()
             Button(role: .destructive, action: deleteAction) {
@@ -997,19 +1110,33 @@ private struct RelatedScreenshotRow: View {
             .buttonStyle(.borderless)
             .accessibilityLabel("Delete related screenshot")
         }
-        .task(id: item.screenshotAssetIdentifier) { await loadImage() }
+        .task(id: imageSourceID) { await loadImage() }
     }
 
     private var matchKind: ScreenshotMatchKind {
         ScreenshotMatchKind(rawValue: item.duplicateMatchRaw ?? "") ?? .similar
     }
 
+    private var imageSourceID: String {
+        [item.screenshotAssetIdentifier, item.sharedImageFilename]
+            .compactMap { $0 }
+            .joined(separator: ":")
+    }
+
     @MainActor
     private func loadImage() async {
-        guard let identifier = item.photoLibraryAssetIdentifier,
-              let asset = PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil).firstObject else {
+        image = nil
+        isLoading = true
+        defer { isLoading = false }
+
+        if let filename = item.sharedImageFilename,
+           let sharedImage = UIImage(contentsOfFile: ShareInboxStore().imageURL(filename: filename).path) {
+            image = sharedImage
             return
         }
+
+        guard let identifier = item.photoLibraryAssetIdentifier,
+              let asset = PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil).firstObject else { return }
         image = try? await ImageLoader().image(
             for: asset,
             targetSize: CGSize(width: 186, height: 264),

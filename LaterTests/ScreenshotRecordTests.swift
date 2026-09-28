@@ -1,10 +1,73 @@
 import Foundation
+import Photos
 import SwiftData
 import Testing
 @testable import Later
 
 @MainActor
 struct ScreenshotRecordTests {
+    @Test func galleryDeletionRemovesOnlyMissingLinkedItemsAndProcessingRecords() async throws {
+        let container = try ModelContainer(for: LaterItem.self, ScreenshotRecord.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = container.mainContext
+        for identifier in ["deleted", "available", "shared:independent"] {
+            let item = LaterItem(title: identifier, category: .photo, kind: .photo,
+                confidence: 1, createdAt: .now, screenshotAssetIdentifier: identifier,
+                rawOCRText: "", needsReview: false)
+            if identifier == "deleted" { item.completedAt = .now }
+            context.insert(item)
+            let record = ScreenshotRecord(assetIdentifier: identifier, screenshotDate: .now)
+            record.resultingItemID = item.id
+            context.insert(record)
+        }
+        context.insert(ScreenshotRecord(assetIdentifier: "deleted-during-analysis", screenshotDate: .now))
+        try context.save()
+        let reconciler = PhotoLibraryReconciler(context: context)
+        for permission in [PHAuthorizationStatus.limited, .denied, .restricted, .notDetermined] {
+            try await reconciler.reconcile(availableIdentifiers: [], authorization: permission)
+            #expect(try context.fetchCount(FetchDescriptor<LaterItem>()) == 3)
+            #expect(try context.fetchCount(FetchDescriptor<ScreenshotRecord>()) == 4)
+        }
+        try await reconciler.reconcile(availableIdentifiers: ["available"], authorization: .authorized)
+        let remaining = try context.fetch(FetchDescriptor<LaterItem>())
+        #expect(Set(remaining.compactMap(\.screenshotAssetIdentifier)) == ["available", "shared:independent"])
+        let records = try context.fetch(FetchDescriptor<ScreenshotRecord>())
+        #expect(Set(records.map(\.assetIdentifier)) == ["available", "shared:independent"])
+        // Repeating catch-up is harmless, including after a restored asset appears.
+        try await reconciler.reconcile(availableIdentifiers: ["available", "deleted"], authorization: .authorized)
+        #expect(try context.fetchCount(FetchDescriptor<LaterItem>()) == 2)
+    }
+
+    @Test func deletingSharedSaveRemovesItsRecordAndKeepsSurvivingCopiesAccessible() async throws {
+        let container = try ModelContainer(for: LaterItem.self, ScreenshotRecord.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = container.mainContext
+        let original = LaterItem(title: "Original", category: .photo, kind: .photo,
+            confidence: 1, createdAt: .now, screenshotAssetIdentifier: "shared:original",
+            rawOCRText: "", needsReview: false)
+        let copy = LaterItem(title: "Copy", category: .photo, kind: .photo,
+            confidence: 1, createdAt: .now, screenshotAssetIdentifier: "shared:copy",
+            rawOCRText: "", needsReview: false)
+        original.duplicateGroupID = UUID()
+        copy.duplicateGroupID = original.duplicateGroupID
+        copy.duplicateOfItemID = original.id
+        let record = ScreenshotRecord(assetIdentifier: "shared:original", screenshotDate: .now)
+        record.resultingItemID = original.id
+        context.insert(original)
+        context.insert(copy)
+        context.insert(record)
+        try context.save()
+
+        try await ItemDeletionService(context: context).delete([original])
+
+        let remaining = try context.fetch(FetchDescriptor<LaterItem>())
+        #expect(remaining.count == 1)
+        #expect(remaining.first?.id == copy.id)
+        #expect(!copy.isDuplicateCopy)
+        #expect(copy.duplicateGroupID == nil)
+        #expect(try context.fetch(FetchDescriptor<ScreenshotRecord>()).isEmpty)
+    }
+
     @Test func processingStatusRoundTripsThroughRawValue() throws {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: ScreenshotRecord.self, configurations: configuration)
@@ -62,11 +125,56 @@ struct ScreenshotRecordTests {
     }
 
     @Test func discoverySourcesUseExpectedBatchLimits() {
-        #expect(ScreenshotDiscoverySource.initialScan.batchLimit == Int.max)
-        #expect(ScreenshotDiscoverySource.foreground.batchLimit == 50)
-        #expect(ScreenshotDiscoverySource.photoLibraryChange.batchLimit == 50)
+        #expect(ScreenshotDiscoverySource.initialScan.batchLimit == 10)
+        #expect(ScreenshotDiscoverySource.foreground.batchLimit == 10)
+        #expect(ScreenshotDiscoverySource.photoLibraryChange.batchLimit == 10)
         #expect(ScreenshotDiscoverySource.backgroundRefresh.batchLimit == 10)
-        #expect(ScreenshotDiscoverySource.backgroundProcessing.batchLimit == 50)
+        #expect(ScreenshotDiscoverySource.backgroundProcessing.batchLimit == 10)
+    }
+
+    @Test func staleItemsGetCleanupInsteadOfRoutineReminders() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 21, hour: 8))!
+        let old = calendar.date(byAdding: .day, value: -200, to: now)!
+        let expired = LaterItem(title: "Expired offer", category: .offer, kind: .offer,
+            confidence: 0.95, createdAt: now, screenshotAssetIdentifier: "expired", rawOCRText: "", needsReview: false)
+        expired.importantDateRole = .expiration
+        expired.detectedDate = now.addingTimeInterval(-86400)
+        let stale = LaterItem(title: "Old shopping", category: .buy, kind: .shopping,
+            confidence: 0.95, createdAt: old, screenshotAssetIdentifier: "old", rawOCRText: "", needsReview: false)
+        let photo = LaterItem(title: "Photo", category: .photo, kind: .photo,
+            confidence: 0.95, createdAt: old, screenshotAssetIdentifier: "photo", rawOCRText: "", needsReview: false)
+        let document = LaterItem(title: "Receipt", category: .remember, kind: .document,
+            confidence: 0.95, createdAt: old, screenshotAssetIdentifier: "receipt", rawOCRText: "", needsReview: false)
+        let plans = NotificationPlanner(calendar: calendar).plans(for: [expired, stale, photo, document], now: now)
+        #expect(plans.count == 1)
+        #expect(plans.first?.isCleanup == true)
+        #expect(Set(plans.first?.relatedItemIDs ?? []) == Set([expired.id, stale.id]))
+        stale.keepFromCleanup = true
+        #expect(ItemRelevancePolicy(calendar: calendar).cleanupReason(for: stale, at: now) == nil)
+    }
+
+    @Test func relevanceUsesDatesAtNotificationTimeAndProtectsAmbiguousSaves() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 9, day: 21, hour: 8))!
+        let policy = ItemRelevancePolicy(calendar: calendar)
+        let item = LaterItem(title: "Upcoming concert", category: .go, kind: .concert,
+            confidence: 0.95, createdAt: now.addingTimeInterval(-400 * 86400),
+            screenshotAssetIdentifier: "event", rawOCRText: "", needsReview: false)
+        item.importantDateRole = .event
+        item.detectedDate = now.addingTimeInterval(86400)
+        #expect(policy.allowsReminder(item, at: now))
+        #expect(!policy.allowsReminder(item, at: now.addingTimeInterval(3 * 86400)))
+        #expect(policy.cleanupReason(for: item, at: now) == nil)
+        let plans = NotificationPlanner(calendar: calendar).plans(for: [item], now: now)
+        #expect(plans.filter { !$0.isCleanup }.allSatisfy { !policy.hasPassed(item, at: $0.fireDate) })
+        item.needsReview = true
+        #expect(policy.cleanupReason(for: item, at: now.addingTimeInterval(3 * 86400)) == nil)
+        #expect(ItemRelevancePolicy.explicitDate("October 15") == nil)
+        #expect(ItemRelevancePolicy.explicitDate("tomorrow") == nil)
+        #expect(ItemRelevancePolicy.explicitDate("October 15, 2025") != nil)
     }
 
     @Test func doorDashCouponIsAPrimaryOffer() async {

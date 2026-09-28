@@ -3,12 +3,14 @@ import SwiftData
 import SwiftUI
 
 struct HomeView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \LaterItem.createdAt, order: .reverse) private var items: [LaterItem]
 
     @State private var authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
     @State private var selectedItem: LaterItem?
+    @State private var showingCleanup = false
     @ObservedObject var discoveryCoordinator: ScreenshotDiscoveryCoordinator
 
     var body: some View {
@@ -36,6 +38,10 @@ struct HomeView: View {
                     if discoveryCoordinator.isProcessing { ProgressView() }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button { showingCleanup = true } label: {
+                        Image(systemName: "paintbrush.pointed.fill")
+                    }
+                    .accessibilityLabel("Cleanup")
                     NavigationLink {
                         CategoriesView()
                     } label: {
@@ -65,6 +71,9 @@ struct HomeView: View {
                 if let selectedItem {
                     LaterItemDetailView(item: selectedItem)
                 }
+            }
+            .navigationDestination(isPresented: $showingCleanup) {
+                ScreenshotCleanupView()
             }
         }
         .task {
@@ -159,6 +168,10 @@ struct HomeView: View {
     }
 
     private func openPendingNotification() {
+        if NotificationManager.shared.consumePendingCleanup() {
+            showingCleanup = true
+            return
+        }
         guard let itemID = NotificationManager.shared.consumePendingOpenedItemID() else { return }
         let id = itemID
         var descriptor = FetchDescriptor<LaterItem>(predicate: #Predicate { $0.id == id })
@@ -181,11 +194,16 @@ struct HomeView: View {
         } description: {
             Text("Later privately turns screenshots into things you want to watch, try, visit, buy, read, and do.")
         } actions: {
-            Button("Find my screenshots") {
+            Button {
                 Task {
                     authorizationStatus = await PhotoAuthorizationService().requestAccess()
                     await catchUp()
                 }
+            } label: {
+                Text("Find my screenshots")
+                    .foregroundStyle(colorScheme == .dark
+                        ? Color(red: 0.02, green: 0.12, blue: 0.18)
+                        : .white)
             }
             .buttonStyle(.borderedProminent)
         }
@@ -206,6 +224,123 @@ struct HomeView: View {
         guard authorizationStatus == .authorized || authorizationStatus == .limited else { return }
         discoveryCoordinator.setActive(true)
         await discoveryCoordinator.discover(.foreground)
+    }
+}
+
+private struct ScreenshotCleanupView: View {
+    @Environment(\.modelContext) private var context
+    @Query(sort: \LaterItem.createdAt) private var items: [LaterItem]
+    @State private var deletionTarget: LaterItem?
+    @State private var errorMessage: String?
+
+    private var candidates: [LaterItem] {
+        items.filter { ItemRelevancePolicy().cleanupReason(for: $0) != nil }
+    }
+
+    var body: some View {
+        List {
+            if candidates.isEmpty {
+                Text("Nothing needs cleanup right now.")
+            }
+            ForEach(candidates) { item in
+                VStack(alignment: .leading, spacing: 12) {
+                    NavigationLink { LaterItemDetailView(item: item) } label: {
+                        HStack(alignment: .top, spacing: 12) {
+                            SourceThumbnail(
+                                identifier: item.photoLibraryAssetIdentifier,
+                                sharedImageFilename: item.sharedImageFilename
+                            )
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(item.title).font(.headline).lineLimit(2)
+                                if let reason = ItemRelevancePolicy().cleanupReason(for: item) {
+                                    Text(reason.displayName)
+                                        .font(.caption2.weight(.bold))
+                                        .foregroundStyle(tagColor(reason))
+                                        .padding(.horizontal, 9)
+                                        .padding(.vertical, 4)
+                                        .background(tagColor(reason).opacity(0.13), in: Capsule())
+                                }
+                                Text(item.createdAt, style: .date)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        Button {
+                            item.keepFromCleanup = true
+                            save()
+                        } label: {
+                            Text("Keep").frame(maxWidth: .infinity)
+                        }
+                        .tint(.blue)
+                        Button {
+                            markAsDone(item)
+                            save()
+                        } label: {
+                            Text("Mark as done").frame(maxWidth: .infinity)
+                        }
+                        .tint(.green)
+                        Button(role: .destructive) { deletionTarget = item } label: {
+                            Text("Delete").frame(maxWidth: .infinity)
+                        }
+                        .tint(.red)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .font(.caption.weight(.semibold))
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .navigationTitle("Cleanup")
+        .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog("Delete this screenshot?", isPresented: Binding(
+            get: { deletionTarget != nil },
+            set: { if !$0 { deletionTarget = nil } }
+        ), titleVisibility: .visible) {
+            if let target = deletionTarget {
+                Button(target.hasPhotoLibraryAsset ? "Delete from Later and Photos" : "Delete from Later", role: .destructive) {
+                    Task { await deleteScreenshot(target) }
+                }
+            }
+        } message: {
+            Text(deletionTarget?.hasPhotoLibraryAsset == true
+                ? "This removes the save from Later and deletes the original from Photos. iOS will ask you to confirm. The original is recoverable in Photos → Recently Deleted."
+                : "This removes the saved image and its details from Later. No original in Photos is linked to this save.")
+        }
+        .alert("Couldn’t finish cleanup", isPresented: Binding(
+            get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } }
+        )) { Button("OK") { errorMessage = nil } } message: { Text(errorMessage ?? "") }
+    }
+
+    private func tagColor(_ reason: ItemCleanupReason) -> Color {
+        switch reason {
+        case .expired: .red
+        case .datePassed: .orange
+        case .old: .blue
+        }
+    }
+
+    private func markAsDone(_ item: LaterItem) {
+        item.completedAt = .now
+        item.statusRaw = "completed"
+        item.updatedAt = .now
+    }
+
+    private func save() {
+        do {
+            try context.save()
+            Task { await NotificationManager.shared.reconcile() }
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    @MainActor
+    private func deleteScreenshot(_ item: LaterItem) async {
+        do {
+            try await ItemDeletionService(context: context).delete([item])
+        } catch { errorMessage = error.localizedDescription }
     }
 }
 
@@ -351,7 +486,7 @@ private struct CategoryItemsView: View {
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel(item.isCompleted ? "Move back to Later" : "Mark as done")
+                            .accessibilityLabel(item.isCompleted ? "Mark as not done" : "Mark as done")
                         }
                     }
                 }
@@ -425,13 +560,13 @@ private struct CompletedItemsView: View {
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("Move back to Later")
+                            .accessibilityLabel("Mark as not done")
                         }
                         .swipeActions(edge: .trailing) {
                             Button {
                                 moveBackToLater(item)
                             } label: {
-                                Label("Move to Later", systemImage: "arrow.uturn.backward")
+                                Label("Mark as not done", systemImage: "circle")
                             }
                             .tint(.orange)
                         }

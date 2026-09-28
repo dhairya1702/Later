@@ -1,13 +1,11 @@
 import Photos
-import SwiftData
 import SwiftUI
 
 struct OnboardingView: View {
+    @Environment(\.colorScheme) private var colorScheme
     private enum Step {
         case introduction
-        case permission
         case scanning
-        case complete
     }
 
     @ObservedObject var discoveryCoordinator: ScreenshotDiscoveryCoordinator
@@ -16,8 +14,6 @@ struct OnboardingView: View {
     @AppStorage(OnboardingState.introductionKey) private var hasSeenIntroduction = false
     @AppStorage(OnboardingState.requestedPhotosKey) private var hasRequestedPhotos = false
     @AppStorage(OnboardingState.initialScanKey) private var hasCompletedInitialScan = false
-    @Query private var items: [LaterItem]
-
     @State private var step: Step = .introduction
     @State private var page = 0
     @State private var authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
@@ -35,14 +31,10 @@ struct OnboardingView: View {
             switch step {
             case .introduction:
                 introduction
-            case .permission:
-                permission
             case .scanning:
                 InitialScanView(coordinator: discoveryCoordinator) {
                     finishOnboarding()
                 }
-            case .complete:
-                completion
             }
         }
         .animation(.easeInOut(duration: 0.28), value: step)
@@ -64,31 +56,23 @@ struct OnboardingView: View {
                 OnboardingPageView(
                     symbol: "rectangle.stack.fill",
                     title: "Your screenshots, finally useful.",
-                    message: "Later turns things you save into offers, events, places, products, ideas, and more.",
+                    message: "Later brings forgotten screenshots back to you and pulls out useful details like dates, prices, codes, and places.",
                     illustration: .cards
                 )
                 .tag(0)
 
                 OnboardingPageView(
-                    symbol: "sparkles.rectangle.stack",
-                    title: "The important parts, already pulled out.",
-                    message: "Dates, times, prices, coupon codes, and locations in the screenshot stay easy to find.",
-                    illustration: .facts
-                )
-                .tag(1)
-
-                OnboardingPageView(
                     symbol: "lock.shield.fill",
                     title: "Your screenshots stay under your control.",
-                    message: "During this local test, screenshots go to your Mac for AI analysis. Later never uses GPS location.",
+                    message: "Later only accesses the photos you allow. You can change Photos access anytime in Settings.",
                     illustration: .privacy
                 )
-                .tag(2)
+                .tag(1)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
 
             HStack(spacing: 8) {
-                ForEach(0..<3) { index in
+                ForEach(0..<2) { index in
                     Capsule()
                         .fill(index == page ? Color.accentColor : Color.secondary.opacity(0.22))
                         .frame(width: index == page ? 24 : 8, height: 8)
@@ -96,130 +80,43 @@ struct OnboardingView: View {
             }
             .padding(.bottom, 22)
 
-            Button(page == 2 ? "Continue" : "Next") {
-                if page < 2 {
-                    withAnimation { page += 1 }
-                } else {
+            if page == 0 {
+                Button {
                     hasSeenIntroduction = true
-                    step = .permission
+                    withAnimation { page = 1 }
+                } label: {
+                    Text("Next").foregroundStyle(prominentLabelColor)
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 24)
+            } else if authorizationStatus == .denied || authorizationStatus == .restricted {
+                if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                    Link(destination: settingsURL) {
+                        Text("Open Settings").foregroundStyle(prominentLabelColor)
+                    }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                }
+            } else {
+                Button {
+                    Task { await requestPhotosAndScan() }
+                } label: {
+                    Text("Allow Photos Access").foregroundStyle(prominentLabelColor)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 24)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 24)
 
             Spacer().frame(height: 24)
         }
     }
 
-    private var permission: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            Image(systemName: "photo.on.rectangle.angled")
-                .font(.system(size: 58, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
-                .symbolEffect(.pulse)
-
-            VStack(spacing: 12) {
-                Text("Allow access to your screenshots")
-                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                    .multilineTextAlignment(.center)
-                Text("Later needs Photos access to find and organize your screenshots. You can choose selected photos or allow full access on the next screen.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            privacyPoints
-
-            if authorizationStatus == .denied || authorizationStatus == .restricted {
-                Text("Photos access is off. You can enable it in Settings whenever you’re ready.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
-                    Link("Open Settings", destination: settingsURL)
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                }
-            } else {
-                Button("Allow Photos Access") {
-                    Task { await requestPhotosAndScan() }
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-            }
-
-            Spacer()
-        }
-        .padding(28)
-    }
-
-    private var privacyPoints: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            OnboardingCheck(text: "Only photos you allow are available to Later")
-            OnboardingCheck(text: "Analysis runs through your Mac during this local test")
-            OnboardingCheck(text: "You can change access anytime in Settings")
-        }
-        .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22))
-    }
-
-    private var completion: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 68))
-                .foregroundStyle(Color.accentColor)
-                .symbolEffect(.bounce, value: step)
-            Text(items.isEmpty ? "You’re ready for Later." : "Your Later is ready.")
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                .multilineTextAlignment(.center)
-            Text(items.isEmpty
-                 ? "Take a screenshot and Later will organize it when it becomes available."
-                 : "We organized \(items.count) \(items.count == 1 ? "thing" : "things") from your screenshots.")
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            if !items.isEmpty {
-                summaryGrid
-            }
-
-            Button("See my Later") { onFinish() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .frame(maxWidth: .infinity)
-            Spacer()
-        }
-        .padding(28)
-    }
-
-    private var summaryGrid: some View {
-        let summaries = categorySummaries
-        return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            ForEach(summaries, id: \.category) { summary in
-                HStack(spacing: 10) {
-                    Image(systemName: summary.category.icon)
-                        .foregroundStyle(Color.accentColor)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("\(summary.count)").font(.headline)
-                        Text(summary.category.displayName).font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-                .padding(14)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-            }
-        }
-    }
-
-    private var categorySummaries: [(category: LaterCategory, count: Int)] {
-        Dictionary(grouping: items, by: \.category)
-            .map { (category: $0.key, count: $0.value.count) }
-            .sorted { $0.count > $1.count }
-            .prefix(4)
-            .map { $0 }
+    private var prominentLabelColor: Color {
+        colorScheme == .dark ? Color(red: 0.02, green: 0.12, blue: 0.18) : .white
     }
 
     @MainActor
@@ -251,11 +148,13 @@ struct OnboardingView: View {
     private func restoreStep() {
         authorizationStatus = PhotoAuthorizationService().status
         guard hasSeenIntroduction else {
+            page = 0
             step = .introduction
             return
         }
         guard hasRequestedPhotos else {
-            step = .permission
+            page = 1
+            step = .introduction
             return
         }
         if authorizationStatus == .authorized || authorizationStatus == .limited {
@@ -265,17 +164,8 @@ struct OnboardingView: View {
                 Task { await startInitialScan() }
             }
         } else {
-            step = .permission
+            page = 1
+            step = .introduction
         }
-    }
-}
-
-private struct OnboardingCheck: View {
-    let text: String
-
-    var body: some View {
-        Label(text, systemImage: "checkmark.circle.fill")
-            .font(.subheadline)
-            .foregroundStyle(.primary, Color.accentColor)
     }
 }

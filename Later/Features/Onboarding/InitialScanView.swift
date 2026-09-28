@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct InitialScanView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var coordinator: ScreenshotDiscoveryCoordinator
     let continueAction: () -> Void
 
@@ -30,7 +31,12 @@ struct InitialScanView: View {
                     .multilineTextAlignment(.center)
             }
 
-            Button("Continue", action: continueAction)
+            Button(action: continueAction) {
+                Text("Continue")
+                    .foregroundStyle(colorScheme == .dark
+                        ? Color(red: 0.02, green: 0.12, blue: 0.18)
+                        : .white)
+            }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
             Spacer()

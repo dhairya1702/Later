@@ -33,6 +33,7 @@ private final class ScreenshotGridModel {
 }
 
 struct ScreenshotGridView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @State private var model = ScreenshotGridModel()
 
@@ -75,8 +76,11 @@ struct ScreenshotGridView: View {
         } description: {
             Text("Later privately finds them in Photos. Processing happens on your iPhone.")
         } actions: {
-            Button("Find my screenshots") {
+            Button {
                 Task { await model.requestAccess() }
+            } label: {
+                Text("Find my screenshots")
+                    .foregroundStyle(prominentLabelColor)
             }
             .buttonStyle(.borderedProminent)
         }
@@ -90,10 +94,17 @@ struct ScreenshotGridView: View {
             Text("Allow full access to find screenshots automatically. Limited access only includes the photos you select.")
         } actions: {
             if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
-                Link("Open Settings", destination: settingsURL)
+                Link(destination: settingsURL) {
+                    Text("Open Settings")
+                        .foregroundStyle(prominentLabelColor)
+                }
                     .buttonStyle(.borderedProminent)
             }
         }
+    }
+
+    private var prominentLabelColor: Color {
+        colorScheme == .dark ? Color(red: 0.02, green: 0.12, blue: 0.18) : .white
     }
 
     @ViewBuilder

@@ -50,6 +50,7 @@ final class LaterItem {
     var duplicateOfItemID: UUID?
     var duplicateMatchRaw: String?
     var relatedCopyCount: Int?
+    var keepFromCleanup: Bool?
 
     var category: LaterCategory {
         get { LaterCategory(rawValue: categoryRaw) ?? .other }
@@ -147,5 +148,85 @@ final class LaterItem {
         self.isUserCorrected = false
         self.needsReview = needsReview
         self.resurfacedCount = 0
+    }
+}
+
+/// One policy shared by scheduled reminders, immediate reminders and cleanup UI.
+enum ItemCleanupReason: Hashable {
+    case expired
+    case datePassed
+    case old
+
+    var displayName: String {
+        switch self {
+        case .expired: "Expired"
+        case .datePassed: "Date passed"
+        case .old: "6+ months ago"
+        }
+    }
+}
+
+struct ItemRelevancePolicy {
+    var calendar: Calendar = .current
+
+    func meaningfulDate(for item: LaterItem) -> Date? {
+        guard item.meaningfulDateRole != nil, !item.needsReview else { return nil }
+        return item.detectedDate ?? Self.explicitDate(item.detectedDateText, time: item.detectedTimeText)
+    }
+
+    // Never let NSDataDetector silently turn a yearless or relative date into a
+    // future date based on the day an old screenshot happens to be imported.
+    static func explicitDate(_ text: String?, time: String? = nil) -> Date? {
+        guard let text,
+              text.range(of: #"\b(?:19|20)\d{2}\b"#, options: .regularExpression) != nil,
+              let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue)
+        else { return nil }
+        let input = [text, time].compactMap { $0 }.joined(separator: " ")
+        let matches = detector.matches(in: input, range: NSRange(input.startIndex..., in: input))
+        guard matches.count == 1 else { return nil }
+        return matches.first?.date
+    }
+
+    func hasPassed(_ item: LaterItem, at date: Date) -> Bool {
+        guard let relevantDate = meaningfulDate(for: item),
+              let role = item.meaningfulDateRole else { return false }
+        // Date-only items remain relevant through the whole local calendar day.
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: relevantDate))!
+        let cutoff: Date
+        switch role {
+        case .delivery: cutoff = calendar.date(byAdding: .day, value: 7, to: endOfDay)!
+        case .event, .reservation, .travel: cutoff = endOfDay
+        case .expiration, .deadline:
+            cutoff = item.detectedTimeText == nil ? endOfDay : relevantDate
+        case .unspecified: return false
+        }
+        return date >= cutoff
+    }
+
+    func allowsReminder(_ item: LaterItem, at date: Date) -> Bool {
+        guard !item.isCompleted, !item.isDuplicateCopy, item.screenSurface != .lockScreen,
+              item.statusRaw != "archived", !hasPassed(item, at: date),
+              item.snoozedUntil == nil || item.snoozedUntil! <= date else { return false }
+        if meaningfulDate(for: item) != nil { return true }
+        return date < calendar.date(byAdding: .day, value: 90, to: item.createdAt)!
+    }
+
+    func cleanupReason(for item: LaterItem, at date: Date = .now) -> ItemCleanupReason? {
+        guard !item.isCompleted, !item.isDuplicateCopy, item.statusRaw != "archived",
+              item.keepFromCleanup != true, !item.needsReview,
+              item.snoozedUntil == nil || item.snoozedUntil! <= date else { return nil }
+        // Lasting images and records should not receive deletion suggestions.
+        let protectedKinds: Set<LaterKind> = [.photo, .meme, .recipe, .style, .home,
+            .product, .book, .movie, .show, .music, .article, .document, .information]
+        guard item.category != .photo, item.category != .inspire,
+              !protectedKinds.contains(item.kind) else { return nil }
+        if hasPassed(item, at: date) {
+            return item.meaningfulDateRole == .expiration ? .expired : .datePassed
+        }
+        if let relevantDate = meaningfulDate(for: item), relevantDate >= date { return nil }
+        let temporaryKinds: Set<LaterKind> = [.offer, .event, .concert, .boardingPass, .shopping, .task]
+        guard temporaryKinds.contains(item.kind),
+              date >= calendar.date(byAdding: .day, value: 180, to: item.createdAt)! else { return nil }
+        return .old
     }
 }

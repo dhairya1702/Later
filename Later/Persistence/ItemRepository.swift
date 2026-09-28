@@ -1,6 +1,96 @@
 import Photos
 import SwiftData
 
+@MainActor
+struct ItemDeletionService {
+    let context: ModelContext
+
+    func delete(_ targets: [LaterItem]) async throws {
+        let identifiers = targets.compactMap(\.photoLibraryAssetIdentifier)
+        if !identifiers.isEmpty {
+            let assets = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: nil)
+            if assets.count > 0 {
+                try await PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.deleteAssets(assets)
+                }
+            }
+        }
+
+        try await removeLocalEntries(targets)
+    }
+
+    /// Removes local data only; used when Photos has already deleted the asset.
+    func removeLocalEntries(_ targets: [LaterItem], missingIdentifiers: Set<String> = []) async throws {
+        let identifiers = Set(targets.compactMap(\.photoLibraryAssetIdentifier)).union(missingIdentifiers)
+        let deletedIDs = Set(targets.map(\.id))
+        let filenames = Set(targets.compactMap(\.sharedImageFilename))
+        let remaining = try context.fetch(FetchDescriptor<LaterItem>()).filter { !deletedIDs.contains($0.id) }
+        // Keep surviving copies accessible when their primary item is deleted.
+        for survivor in remaining where survivor.duplicateOfItemID.map(deletedIDs.contains) == true {
+            survivor.duplicateOfItemID = nil
+        }
+        for survivor in remaining {
+            guard let group = survivor.duplicateGroupID else { continue }
+            let peers = remaining.filter { $0.id != survivor.id && $0.duplicateGroupID == group }
+            survivor.relatedCopyCount = peers.count
+            if peers.isEmpty {
+                survivor.duplicateGroupID = nil
+                survivor.duplicateMatchRaw = nil
+            }
+        }
+        for record in try context.fetch(FetchDescriptor<ScreenshotRecord>())
+        where identifiers.contains(record.assetIdentifier) || record.resultingItemID.map(deletedIDs.contains) == true {
+            context.delete(record)
+        }
+        for target in targets { context.delete(target) }
+        try context.save()
+        for filename in filenames where !remaining.contains(where: { $0.sharedImageFilename == filename }) {
+            try? FileManager.default.removeItem(at: ShareInboxStore().imageURL(filename: filename))
+        }
+        await NotificationManager.shared.removeNotifications(for: deletedIDs)
+        await NotificationManager.shared.reconcile()
+    }
+}
+
+@MainActor
+struct PhotoLibraryReconciler {
+    let context: ModelContext
+
+    func reconcile() async throws {
+        // Under limited access a missing asset may simply be deselected, not deleted.
+        guard PHPhotoLibrary.authorizationStatus(for: .readWrite) == .authorized else { return }
+        let items = try context.fetch(FetchDescriptor<LaterItem>())
+        let records = try context.fetch(FetchDescriptor<ScreenshotRecord>())
+        let identifiers = Set(items.compactMap(\.photoLibraryAssetIdentifier))
+            .union(records.map(\.assetIdentifier).filter { !$0.hasPrefix(LaterItem.sharedIdentifierPrefix) })
+        guard !identifiers.isEmpty else { return }
+        let options = PHFetchOptions()
+        options.includeHiddenAssets = true
+        options.includeAllBurstAssets = true
+        let assets = PHAsset.fetchAssets(withLocalIdentifiers: Array(identifiers), options: options)
+        var available = Set<String>()
+        assets.enumerateObjects { asset, _, _ in available.insert(asset.localIdentifier) }
+        // Check again in case access changed while taking the snapshot.
+        try await reconcile(availableIdentifiers: available,
+                            authorization: PHPhotoLibrary.authorizationStatus(for: .readWrite))
+    }
+
+    func reconcile(availableIdentifiers: Set<String>, authorization: PHAuthorizationStatus) async throws {
+        guard authorization == .authorized else { return }
+        let items = try context.fetch(FetchDescriptor<LaterItem>())
+        let records = try context.fetch(FetchDescriptor<ScreenshotRecord>())
+        let missingItems = items.filter {
+            guard let id = $0.photoLibraryAssetIdentifier else { return false }
+            return !availableIdentifiers.contains(id)
+        }
+        let missingRecords = Set(records.map(\.assetIdentifier).filter {
+            !$0.hasPrefix(LaterItem.sharedIdentifierPrefix) && !availableIdentifiers.contains($0)
+        })
+        guard !missingItems.isEmpty || !missingRecords.isEmpty else { return }
+        try await ItemDeletionService(context: context).removeLocalEntries(missingItems, missingIdentifiers: missingRecords)
+    }
+}
+
 /// How an ingestion route resolved to an item. Only `created` represents a genuinely
 /// new thing worth telling the user about; `merged` means the other route already
 /// announced this screenshot.
@@ -130,7 +220,7 @@ struct ItemRepository {
             category: classification.category,
             kind: classification.kind,
             confidence: classification.confidence,
-            createdAt: record.createdAt,
+            createdAt: record.capturedAt ?? record.createdAt,
             screenshotAssetIdentifier: LaterItem.sharedIdentifier(for: record.id),
             rawOCRText: record.analysis?.visibleText ?? "",
             needsReview: classification.needsReview

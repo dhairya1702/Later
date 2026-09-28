@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import UIKit
 
 enum ShareInboxConfiguration {
@@ -13,6 +14,7 @@ struct ShareInboxRecord: Codable, Identifiable {
     var analysis: VisionAnalysis?
     var lastError: String?
     var notificationDelivered: Bool
+    var capturedAt: Date? = nil
 }
 
 enum ShareInboxError: LocalizedError {
@@ -51,7 +53,8 @@ struct ShareInboxStore {
             fingerprint: fingerprint,
             analysis: nil,
             lastError: nil,
-            notificationDelivered: false
+            notificationDelivered: false,
+            capturedAt: Self.captureDate(in: originalData)
         )
         try save(record)
         return record
@@ -106,6 +109,20 @@ struct ShareInboxStore {
             return originalData
         }
         return image.pngData()
+    }
+
+    private static func captureDate(in data: Data?) -> Date? {
+        guard let data,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
+              let exif = properties[kCGImagePropertyExifDictionary as String] as? [String: Any],
+              let text = exif[kCGImagePropertyExifDateTimeOriginal as String] as? String else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        formatter.isLenient = false
+        guard let date = formatter.date(from: text), date <= Date.now else { return nil }
+        return date
     }
 
     private var rootURL: URL {

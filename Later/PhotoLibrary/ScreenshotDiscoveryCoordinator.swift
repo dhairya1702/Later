@@ -37,6 +37,7 @@ final class ScreenshotDiscoveryCoordinator: NSObject, ObservableObject, PHPhotoL
     private var isObservingPhotoLibrary = false
     private var inFlightIdentifiers = Set<String>()
     private var pendingChangedIdentifiers = Set<String>()
+    private var needsLibraryReconciliation = false
     private var changeDebounceTask: Task<Void, Never>?
     private var activeBatch: Task<Bool, Never>?
     private var backgroundWorkScheduler: (() -> Void)?
@@ -61,7 +62,7 @@ final class ScreenshotDiscoveryCoordinator: NSObject, ObservableObject, PHPhotoL
         isActive = active
         if active {
             startPhotoLibraryObservationIfAuthorized()
-            if !pendingChangedIdentifiers.isEmpty {
+            if !pendingChangedIdentifiers.isEmpty || needsLibraryReconciliation {
                 Task { @MainActor [weak self] in await self?.processPendingPhotoChanges() }
             }
         } else {
@@ -123,15 +124,14 @@ final class ScreenshotDiscoveryCoordinator: NSObject, ObservableObject, PHPhotoL
     }
 
     private func receivePhotoLibraryChange(_ change: PHChange) {
-        guard let currentFetchResult = screenshotFetchResult,
-              let details = change.changeDetails(for: currentFetchResult) else { return }
-        screenshotFetchResult = details.fetchResultAfterChanges
-        guard details.hasIncrementalChanges else { return }
-
-        pendingChangedIdentifiers.formUnion(
-            details.insertedObjects.map(\.localIdentifier)
-        )
-        guard !pendingChangedIdentifiers.isEmpty else { return }
+        needsLibraryReconciliation = true
+        if let currentFetchResult = screenshotFetchResult,
+           let details = change.changeDetails(for: currentFetchResult) {
+            screenshotFetchResult = details.fetchResultAfterChanges
+            if details.hasIncrementalChanges {
+                pendingChangedIdentifiers.formUnion(details.insertedObjects.map(\.localIdentifier))
+            }
+        }
 
         if !isActive {
             beginFiniteBackgroundExecutionIfNeeded()
@@ -167,7 +167,8 @@ final class ScreenshotDiscoveryCoordinator: NSObject, ObservableObject, PHPhotoL
             endFiniteBackgroundExecution()
         }
 
-        while !pendingChangedIdentifiers.isEmpty && !Task.isCancelled {
+        while (!pendingChangedIdentifiers.isEmpty || needsLibraryReconciliation) && !Task.isCancelled {
+            needsLibraryReconciliation = false
             let identifiers = pendingChangedIdentifiers
             pendingChangedIdentifiers.removeAll()
             let result = PHAsset.fetchAssets(withLocalIdentifiers: Array(identifiers), options: nil)
@@ -183,14 +184,18 @@ final class ScreenshotDiscoveryCoordinator: NSObject, ObservableObject, PHPhotoL
             if let activeBatch {
                 _ = await activeBatch.value
             }
+            guard !Task.isCancelled else { return }
             let task = Task { @MainActor [weak self] in
                 guard let self else { return false }
                 self.isProcessing = true
                 defer { self.isProcessing = false }
-                return await self.process(
+                await self.reconcileDeletedScreenshots()
+                let completed = await self.process(
                     assets: assets,
                     limit: ScreenshotDiscoverySource.photoLibraryChange.batchLimit
                 )
+                await self.reconcileDeletedScreenshots()
+                return completed
             }
             activeBatch = task
             _ = await task.value
@@ -221,6 +226,8 @@ final class ScreenshotDiscoveryCoordinator: NSObject, ObservableObject, PHPhotoL
         isProcessing = true
         defer { isProcessing = false }
 
+        await reconcileDeletedScreenshots()
+
         let context = ModelContext(container)
         let repository = ScreenshotRepository(context: context)
         guard let processed = try? repository.upToDateProcessedIdentifiers(),
@@ -239,7 +246,18 @@ final class ScreenshotDiscoveryCoordinator: NSObject, ObservableObject, PHPhotoL
             }
         }
         let assets = Array((neverProcessed + stale).prefix(limit))
-        return await process(assets: assets, limit: limit, context: context)
+        let completed = await process(assets: assets, limit: limit, context: context)
+        // An asset may have been deleted while its vision request was in flight.
+        await reconcileDeletedScreenshots()
+        return completed
+    }
+
+    private func reconcileDeletedScreenshots() async {
+        do {
+            try await PhotoLibraryReconciler(context: container.mainContext).reconcile()
+        } catch {
+            // Retry on the next library change or foreground catch-up.
+        }
     }
 
     private func process(

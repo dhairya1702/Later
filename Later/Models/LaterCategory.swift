@@ -76,7 +76,7 @@ enum LaterCategory: String, Codable, CaseIterable, Identifiable {
         case .buy: "Bought"
         case .read: "Read"
         case .doItem: "Done"
-        case .remember, .offer, .inspire, .photo, .other: "Archived"
+        case .remember, .offer, .inspire, .photo, .other: "Done"
         }
     }
 }

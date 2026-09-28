@@ -33,7 +33,7 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Later connects to your Mac on the local network to analyze screenshots during development.</string>
+	<string>Later connects to its screenshot analysis service.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Later adds reminders you choose from saved screenshots.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>

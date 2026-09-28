@@ -12,6 +12,7 @@ struct LaterNotificationPlan: Hashable {
     let body: String
     let isUrgent: Bool
     let isSummary: Bool
+    var isCleanup: Bool = false
 }
 
 struct NotificationPlanner {
@@ -27,17 +28,30 @@ struct NotificationPlanner {
         horizonDays: Int = 7,
         currentDayImmediateCount: Int = 0
     ) -> [LaterNotificationPlan] {
-        let items = allItems.filter {
-            !$0.isCompleted
-                && !$0.isDuplicateCopy
-                && $0.screenSurface != .lockScreen
-        }
-        guard !items.isEmpty,
-              let horizonEnd = calendar.date(byAdding: .day, value: horizonDays, to: now) else {
+        let policy = ItemRelevancePolicy(calendar: calendar)
+        let items = allItems.filter { policy.allowsReminder($0, at: now) }
+        guard let horizonEnd = calendar.date(byAdding: .day, value: horizonDays, to: now) else {
             return []
         }
 
         var result = urgentPlans(for: items, now: now, horizonEnd: horizonEnd)
+        // A fixed weekly slot avoids moving the suggestion further out every time
+        // the app reconciles, and prevents repeated daily cleanup nudges.
+        if let cleanupDate = calendar.nextDate(after: now, matching: DateComponents(hour: 18, minute: 0, weekday: 1), matchingPolicy: .nextTime),
+           cleanupDate <= horizonEnd {
+            let candidates = allItems.filter { policy.cleanupReason(for: $0, at: cleanupDate) != nil }
+            if let first = candidates.first {
+                result.append(LaterNotificationPlan(
+                    identifier: "later.cleanup.\(dayKey(cleanupDate))",
+                    itemID: first.id, relatedItemIDs: candidates.map(\.id), fireDate: cleanupDate,
+                    title: "Time for a little screenshot cleanup?",
+                    body: candidates.count == 1
+                        ? "You have a screenshot you may no longer need. Review it before deleting."
+                        : "You have \(candidates.count) screenshots you may no longer need. Review them before deleting.",
+                    isUrgent: false, isSummary: true, isCleanup: true
+                ))
+            }
+        }
         var usage = Dictionary(grouping: result, by: \.itemID).mapValues(\.count)
 
         for dayOffset in 0..<horizonDays {
@@ -63,7 +77,8 @@ struct NotificationPlanner {
                       fireDate > now.addingTimeInterval(5 * 60) else { continue }
 
                 let available = items.filter { item in
-                    !usedToday.contains(item.id)
+                    policy.allowsReminder(item, at: fireDate)
+                        && !usedToday.contains(item.id)
                         && usage[item.id, default: 0] < 2
                         && (item.snoozedUntil == nil || item.snoozedUntil! <= fireDate)
                 }
@@ -125,7 +140,7 @@ struct NotificationPlanner {
         var plans: [LaterNotificationPlan] = []
 
         for item in items {
-            guard let date = item.detectedDate,
+            guard let date = ItemRelevancePolicy(calendar: calendar).meaningfulDate(for: item),
                   date > now,
                   let role = item.importantDateRole,
                   role != .unspecified else { continue }
@@ -149,7 +164,8 @@ struct NotificationPlanner {
                 if role == .expiration && offset == 0 {
                     fireDate = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: date) ?? date
                 }
-                guard fireDate > now.addingTimeInterval(5 * 60),
+                guard ItemRelevancePolicy(calendar: calendar).allowsReminder(item, at: fireDate),
+                      fireDate > now.addingTimeInterval(5 * 60),
                       fireDate <= horizonEnd,
                       item.snoozedUntil == nil || item.snoozedUntil! <= fireDate else { continue }
                 let copy = IntentNotificationComposer(calendar: calendar).compose(
@@ -201,6 +217,7 @@ struct NotificationPlanner {
         let itemByID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         let relatedItems = relatedItemIDs
             .compactMap { itemByID[$0] }
+            .filter { ItemRelevancePolicy(calendar: calendar).allowsReminder($0, at: fireDate) }
             .sorted { lhs, rhs in
                 if isActionable(lhs) != isActionable(rhs) { return isActionable(lhs) }
                 return lhs.createdAt > rhs.createdAt
@@ -286,7 +303,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     private let center = UNUserNotificationCenter.current()
     private let defaults = UserDefaults.standard
-    private static let pendingOpenedItemIDKey = "notification.pendingOpenedItemID"
+    nonisolated private static let pendingOpenedItemIDKey = "notification.pendingOpenedItemID"
+    nonisolated private static let pendingCleanupKey = "notification.pendingCleanup"
     private var container: ModelContainer?
     private var isReconciling = false
     private var needsAnotherReconcile = false
@@ -317,6 +335,12 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
         defaults.removeObject(forKey: Self.pendingOpenedItemIDKey)
         return itemID
+    }
+
+    func consumePendingCleanup() -> Bool {
+        let pending = defaults.bool(forKey: Self.pendingCleanupKey)
+        defaults.removeObject(forKey: Self.pendingCleanupKey)
+        return pending
     }
 
     func handleProcessed(
@@ -366,6 +390,25 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         isReconciling = false
     }
 
+    func removeNotifications(for itemIDs: Set<UUID>) async {
+        guard !itemIDs.isEmpty else { return }
+        func referencesDeletedItem(_ content: UNNotificationContent) -> Bool {
+            let values = (content.userInfo["itemIDs"] as? [String] ?? [])
+                + [content.userInfo["itemID"] as? String].compactMap { $0 }
+            return values.compactMap(UUID.init(uuidString:)).contains { itemIDs.contains($0) }
+        }
+        let pending = await center.pendingNotificationRequests()
+        center.removePendingNotificationRequests(withIdentifiers:
+            pending.filter { referencesDeletedItem($0.content) }.map(\.identifier))
+        let delivered = await center.deliveredNotifications()
+        center.removeDeliveredNotifications(withIdentifiers:
+            delivered.filter { referencesDeletedItem($0.request.content) }.map { $0.request.identifier })
+        if let rawID = defaults.string(forKey: Self.pendingOpenedItemIDKey),
+           let id = UUID(uuidString: rawID), itemIDs.contains(id) {
+            defaults.removeObject(forKey: Self.pendingOpenedItemIDKey)
+        }
+    }
+
     private func performReconciliation() async {
         guard let container else { return }
         let settings = await center.notificationSettings()
@@ -392,10 +435,11 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             content.title = plan.title
             content.body = plan.body
             content.sound = .default
-            content.categoryIdentifier = plan.isSummary ? "later.summary" : "later.item"
+            content.categoryIdentifier = plan.isCleanup ? "later.cleanup" : (plan.isSummary ? "later.summary" : "later.item")
             content.userInfo = [
                 "itemID": plan.itemID.uuidString,
-                "itemIDs": plan.relatedItemIDs.map(\.uuidString)
+                "itemIDs": plan.relatedItemIDs.map(\.uuidString),
+                "cleanup": plan.isCleanup
             ]
             let components = Calendar.current.dateComponents(
                 [.year, .month, .day, .hour, .minute, .second],
@@ -429,6 +473,9 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         )
         center.setNotificationCategories([
             UNNotificationCategory(
+                identifier: "later.cleanup", actions: [review], intentIdentifiers: [], options: []
+            ),
+            UNNotificationCategory(
                 identifier: "later.item",
                 actions: [done, remindLater],
                 intentIdentifiers: [],
@@ -446,7 +493,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     private func deliverImmediateIfEligible(item: LaterItem, captureDate: Date) async {
         let now = Date.now
         let age = now.timeIntervalSince(captureDate)
-        guard !item.isCompleted,
+        guard ItemRelevancePolicy().allowsReminder(item, at: now),
+              !item.isCompleted,
               !item.isDuplicateCopy,
               item.screenSurface != .lockScreen,
               age >= -60,
@@ -519,11 +567,13 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         let itemID = (userInfo["itemID"] as? String).flatMap(UUID.init(uuidString:))
         let actionIdentifier = response.actionIdentifier
 
-        if actionIdentifier == UNNotificationDefaultActionIdentifier, let itemID {
-            UserDefaults.standard.set(
-                itemID.uuidString,
-                forKey: Self.pendingOpenedItemIDKey
-            )
+        if actionIdentifier == UNNotificationDefaultActionIdentifier || actionIdentifier == Action.review {
+            if userInfo["cleanup"] as? Bool == true {
+                UserDefaults.standard.set(true, forKey: Self.pendingCleanupKey)
+                UserDefaults.standard.removeObject(forKey: Self.pendingOpenedItemIDKey)
+            } else if let itemID {
+                UserDefaults.standard.set(itemID.uuidString, forKey: Self.pendingOpenedItemIDKey)
+            }
         }
 
         // Let iOS finish handling the notification before doing any model or UI work.
@@ -536,9 +586,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
                 if let itemID { await complete(itemID: itemID) }
             case Action.remindLater:
                 await snooze(itemIDs: itemIDs.isEmpty ? [itemID].compactMap { $0 } : itemIDs)
-            case Action.review:
-                break
-            case UNNotificationDefaultActionIdentifier:
+            case Action.review, UNNotificationDefaultActionIdentifier:
                 // If the scene was already active, prompt it after the callback and
                 // the current run loop have completed. Cold launches are picked up
                 // when HomeView becomes active.
