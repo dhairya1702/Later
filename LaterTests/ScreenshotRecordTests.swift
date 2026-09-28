@@ -125,7 +125,7 @@ struct ScreenshotRecordTests {
     }
 
     @Test func discoverySourcesUseExpectedBatchLimits() {
-        #expect(ScreenshotDiscoverySource.initialScan.batchLimit == 10)
+        #expect(ScreenshotDiscoverySource.initialScan.batchLimit == 100)
         #expect(ScreenshotDiscoverySource.foreground.batchLimit == 10)
         #expect(ScreenshotDiscoverySource.photoLibraryChange.batchLimit == 10)
         #expect(ScreenshotDiscoverySource.backgroundRefresh.batchLimit == 10)

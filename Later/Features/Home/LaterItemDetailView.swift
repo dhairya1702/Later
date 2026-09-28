@@ -45,6 +45,7 @@ struct LaterItemDetailView: View {
 
                 if !contextualActions.isEmpty {
                     contextualActionButtons
+                        .zIndex(2)
                 }
                 if let actionStatus {
                     Text(actionStatus)
@@ -55,6 +56,7 @@ struct LaterItemDetailView: View {
 
                 if let media = item.detectedMedia {
                     mediaActionButtons(for: media)
+                        .zIndex(2)
                 }
 
                 if hasImportantDetails {
@@ -62,6 +64,7 @@ struct LaterItemDetailView: View {
                 }
 
                 screenshotPreview
+                    .zIndex(0)
 
                 if !relatedScreenshots.isEmpty {
                     relatedScreenshotsSection
@@ -216,23 +219,20 @@ struct LaterItemDetailView: View {
                 ZStack(alignment: .bottomTrailing) {
                     Color(.secondarySystemBackground)
                     if let image {
-                        GeometryReader { proxy in
-                            ZStack {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: proxy.size.width, height: proxy.size.height)
-                                    .blur(radius: 18)
-                                    .opacity(0.28)
-
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: proxy.size.width, height: proxy.size.height)
-                            }
-                            .frame(width: proxy.size.width, height: proxy.size.height)
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .blur(radius: 18)
+                            .opacity(0.28)
                             .clipped()
-                        }
+                            .allowsHitTesting(false)
+
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .allowsHitTesting(false)
                     } else {
                         VStack(spacing: 10) {
                             Image(systemName: "photo")
@@ -249,11 +249,14 @@ struct LaterItemDetailView: View {
                             .padding(.vertical, 7)
                             .background(.ultraThinMaterial, in: Capsule())
                             .padding(10)
+                            .allowsHitTesting(false)
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 240)
+                .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 18))
+                .contentShape(RoundedRectangle(cornerRadius: 18))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("View full screenshot")
