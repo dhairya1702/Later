@@ -21,6 +21,8 @@ fi
 
 api_token="${LATER_API_TOKEN:-$(openssl rand -hex 32)}"
 service_account_email="${service_account_name}@${project_id}.iam.gserviceaccount.com"
+project_number="$(gcloud projects describe "$project_id" --format='value(projectNumber)')"
+build_service_account="${project_number}-compute@developer.gserviceaccount.com"
 
 gcloud config set project "$project_id"
 gcloud services enable \
@@ -40,6 +42,14 @@ fi
 gcloud projects add-iam-policy-binding "$project_id" \
   --member "serviceAccount:${service_account_email}" \
   --role roles/aiplatform.user \
+  --condition=None \
+  --quiet >/dev/null
+
+# New GCP projects no longer grant the default source-build identity broad
+# permissions. Give it only the documented role needed to build Cloud Run.
+gcloud projects add-iam-policy-binding "$project_id" \
+  --member "serviceAccount:${build_service_account}" \
+  --role roles/run.builder \
   --condition=None \
   --quiet >/dev/null
 
