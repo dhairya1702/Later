@@ -7,7 +7,7 @@ struct ClassificationConfig {
     static let minimumKindConfidence = 0.60
     static let ruleWeight = 0.65
     static let semanticWeight = 0.35
-    static let classifierVersion = 15
+    static let classifierVersion = 16
 }
 
 struct ConfidenceRouter {
@@ -22,6 +22,7 @@ struct ConfidenceRouter {
         visualModelAvailable: Bool? = nil,
         usedVisualClassification: Bool? = nil,
         screenDetection: ScreenDetection? = nil,
+        likelyAccidental: Bool? = nil,
         forceAbstention: Bool = false
     ) -> ClassificationResult {
         let ranked = scores.sorted { $0.finalScore > $1.finalScore }
@@ -60,7 +61,8 @@ struct ConfidenceRouter {
             visualLabels: visualLabels,
             visualModelAvailable: visualModelAvailable,
             usedVisualClassification: usedVisualClassification,
-            screenDetection: screenDetection
+            screenDetection: screenDetection,
+            likelyAccidental: likelyAccidental
         )
     }
 }

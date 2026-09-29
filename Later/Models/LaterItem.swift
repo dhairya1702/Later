@@ -223,15 +223,15 @@ struct ItemRelevancePolicy {
         if item.likelyAccidental == true { return .likelyAccidental }
         guard !item.needsReview else { return nil }
         // Lasting images and records should not receive deletion suggestions.
-        let protectedKinds: Set<LaterKind> = [.photo, .meme, .recipe, .style, .home,
-            .product, .book, .movie, .show, .music, .article, .document, .information]
-        guard item.category != .photo, item.category != .inspire,
+        let protectedKinds: Set<LaterKind> = [.photo, .meme, .book, .movie, .show,
+            .music, .article, .document, .information]
+        guard item.category != .photo,
               !protectedKinds.contains(item.kind) else { return nil }
         if hasPassed(item, at: date) {
             return item.meaningfulDateRole == .expiration ? .expired : .datePassed
         }
         if let relevantDate = meaningfulDate(for: item), relevantDate >= date { return nil }
-        let temporaryKinds: Set<LaterKind> = [.offer, .event, .concert, .boardingPass, .shopping, .task]
+        let temporaryKinds: Set<LaterKind> = [.offer, .event, .concert, .boardingPass, .shopping, .task, .job]
         guard temporaryKinds.contains(item.kind),
               date >= calendar.date(byAdding: .day, value: 180, to: item.createdAt)! else { return nil }
         return .old

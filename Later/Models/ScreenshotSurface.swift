@@ -9,6 +9,7 @@ enum ScreenshotSurface: String, Codable, Hashable {
     case map
     case redditPost
     case comments
+    case homeScreen
     case lockScreen
     case unknown
 }

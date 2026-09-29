@@ -110,7 +110,6 @@ struct TitleExtractor {
         case .doItem: "Saved task"
         case .remember: "Saved information"
         case .offer: "Saved offer"
-        case .inspire: "Saved inspiration"
         case .photo: "Saved photo"
         case .other: "Saved screenshot"
         }

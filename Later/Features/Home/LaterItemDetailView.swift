@@ -95,7 +95,7 @@ struct LaterItemDetailView: View {
             }
             .padding()
         }
-        .navigationTitle(item.kind == .other ? "Screenshot" : item.kind.displayName)
+        .navigationTitle(item.sourceApp == .linkedin ? "LinkedIn" : (item.kind == .other ? "Screenshot" : item.kind.displayName))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { displayedItemID = item.id }
         .onChange(of: allItems.map(\.id)) { _, identifiers in
@@ -173,6 +173,7 @@ struct LaterItemDetailView: View {
                     in: Date.now...,
                     displayedComponents: [.date, .hourAndMinute]
                 )
+                .foregroundStyle(.primary)
             }
             .navigationTitle("Custom Reminder")
             .navigationBarTitleDisplayMode(.inline)
@@ -220,20 +221,24 @@ struct LaterItemDetailView: View {
                 ZStack(alignment: .bottomTrailing) {
                     Color(.secondarySystemBackground)
                     if let image {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .blur(radius: 18)
-                            .opacity(0.28)
-                            .clipped()
-                            .allowsHitTesting(false)
+                        GeometryReader { proxy in
+                            ZStack {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: proxy.size.width, height: proxy.size.height)
+                                    .blur(radius: 18)
+                                    .opacity(0.28)
+                                    .clipped()
 
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: proxy.size.width, height: proxy.size.height)
+                            }
+                            .frame(width: proxy.size.width, height: proxy.size.height)
                             .allowsHitTesting(false)
+                        }
                     } else {
                         VStack(spacing: 10) {
                             Image(systemName: "photo")
@@ -268,12 +273,16 @@ struct LaterItemDetailView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
-                Label(item.kind.displayName.uppercased(), systemImage: item.kind.icon)
-                if item.isOffer == true && item.kind != .offer {
-                    Label("OFFER", systemImage: "tag.fill")
-                }
-                if let sourceBadge {
-                    Label(sourceBadge.label, systemImage: sourceBadge.icon)
+                if item.sourceApp == .linkedin {
+                    Label("LINKEDIN", systemImage: "briefcase.fill")
+                } else {
+                    Label(item.kind.displayName.uppercased(), systemImage: item.kind.icon)
+                    if item.isOffer == true && item.kind != .offer {
+                        Label("OFFER", systemImage: "tag.fill")
+                    }
+                    if let sourceBadge {
+                        Label(sourceBadge.label, systemImage: sourceBadge.icon)
+                    }
                 }
             }
             .font(.caption.bold())
@@ -673,7 +682,7 @@ struct LaterItemDetailView: View {
         case .reddit:
             ("REDDIT", "bubble.left.and.bubble.right.fill")
         case .linkedin:
-            ("LINKEDIN", "briefcase.fill")
+            nil
         default:
             nil
         }
@@ -753,11 +762,12 @@ struct LaterItemDetailView: View {
     private var categoryColor: Color {
         switch item.kind {
         case .concert, .music: .pink
-        case .shopping, .style, .home, .recipe, .product: .purple
+        case .shopping: .purple
         case .food: .orange
         case .movie, .show: .indigo
         case .activity: .green
         case .task: .mint
+        case .job: .blue
         case .book, .article: .teal
         case .place, .event: .blue
         case .information, .document: .brown
@@ -838,10 +848,10 @@ private struct ReminderChoiceSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Button("Tonight") { choose(.tonight) }
-                Button("Tomorrow") { choose(.tomorrow) }
-                Button("This Weekend") { choose(.weekend) }
-                Button("Choose Date & Time…", action: chooseCustom)
+                reminderChoice("Tonight") { choose(.tonight) }
+                reminderChoice("Tomorrow") { choose(.tomorrow) }
+                reminderChoice("This Weekend") { choose(.weekend) }
+                reminderChoice("Choose Date & Time…", action: chooseCustom)
             }
             .navigationTitle("Remind me")
             .navigationBarTitleDisplayMode(.inline)
@@ -852,6 +862,15 @@ private struct ReminderChoiceSheet: View {
             }
         }
         .tint(Color(uiColor: .systemBlue))
+    }
+
+    private func reminderChoice(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+        }
     }
 }
 

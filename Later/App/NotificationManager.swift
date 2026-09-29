@@ -285,7 +285,7 @@ struct NotificationPlanner {
         case 1: [.buy, .doItem, .read, .offer]
         case 2: [.eat, .go, .buy, .offer]
         case 3: [.watch, .eat, .go]
-        default: [.read, .watch, .inspire, .photo]
+        default: [.read, .watch, .photo]
         }
     }
 

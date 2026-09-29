@@ -205,6 +205,21 @@ struct ScreenshotRecordTests {
         #expect(plans.first?.body == "This screenshot looks accidental. You might want to delete it.")
     }
 
+    @Test func activeLockScreenAlarmIsLikelyAccidental() {
+        #expect(VisionAnalysis.isActiveAlarmScreen(
+            surface: .lockScreen,
+            visibleText: "6:30 AM\nAlarm\nSnooze\nStop"
+        ))
+        #expect(!VisionAnalysis.isActiveAlarmScreen(
+            surface: .lockScreen,
+            visibleText: "Reminder\nStop by the store\nSnooze notifications"
+        ))
+        #expect(!VisionAnalysis.isActiveAlarmScreen(
+            surface: .unknown,
+            visibleText: "Alarm\nSnooze\nStop"
+        ))
+    }
+
     @Test func doorDashCouponIsAPrimaryOffer() async {
         let result = await ScreenshotClassifier.shared.classify(
             text: "DoorDash: Get $15 off your next order. Promo code SAVE15. Expires October 15."
@@ -272,9 +287,10 @@ struct ScreenshotRecordTests {
             VisualLabel(identifier: "document, receipt", confidence: 0.84)
         ])
 
-        #expect(style.category == .inspire)
-        #expect(style.kind == .style)
-        #expect(home.kind == .home)
+        #expect(style.category == .photo)
+        #expect(style.kind == .photo)
+        #expect(home.category == .photo)
+        #expect(home.kind == .photo)
         #expect(generic.category == .photo)
         #expect(generic.kind == .photo)
         #expect(weakTextGuess.category == .photo)
@@ -439,6 +455,28 @@ struct ScreenshotRecordTests {
         #expect(result.kind == .boardingPass)
         #expect(result.category == .go)
         #expect(title == "ORD → SFO")
+    }
+
+    @Test func iphoneHomeScreenIsAlwaysLikelyAccidental() async {
+        let text = """
+        Messages
+        Calendar
+        Photos
+        Camera
+        Mail
+        Maps
+        Weather
+        Clock
+        Settings
+        Phone
+        Safari
+        """
+        let result = await ScreenshotClassifier.shared.classify(text: text)
+
+        #expect(result.screenDetection?.surface == .homeScreen)
+        #expect(result.category == .other)
+        #expect(result.kind == .other)
+        #expect(result.likelyAccidental == true)
     }
 
     @Test func redditPostUsesThreadHeadlineAsTitle() async {

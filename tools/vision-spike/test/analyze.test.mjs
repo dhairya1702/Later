@@ -72,6 +72,49 @@ test("Reddit communities and LinkedIn are accepted as source metadata", () => {
   assert.equal(validateAnalysis(linkedin).sourceApp, "linkedin");
 });
 
+test("LinkedIn job listings have a dedicated content type", () => {
+  const job = {
+    ...validAnalysis,
+    category: "remember",
+    kind: "job",
+    sourceApp: "linkedin",
+    sourceContext: null,
+  };
+  assert.equal(validateAnalysis(job).kind, "job");
+});
+
+test("plain iPhone Home Screens are normalized as accidental", () => {
+  const homeScreen = validateAnalysis({
+    ...validAnalysis,
+    category: "photo",
+    kind: "photo",
+    surface: "homeScreen",
+    likelyAccidental: false,
+    needsReview: true,
+  });
+  assert.equal(homeScreen.category, "other");
+  assert.equal(homeScreen.kind, "other");
+  assert.equal(homeScreen.likelyAccidental, true);
+  assert.equal(homeScreen.needsReview, false);
+});
+
+test("the fixed taxonomy rejects the removed inspiration category", () => {
+  assert.throws(
+    () => validateAnalysis({ ...validAnalysis, category: "inspire" }),
+    /unsupported value/,
+  );
+});
+
+test("boardingPass remains the compatible broad Travel kind", () => {
+  const travel = validateAnalysis({
+    ...validAnalysis,
+    category: "go",
+    kind: "boardingPass",
+    facts: { ...validAnalysis.facts, dateRole: "travel" },
+  });
+  assert.equal(travel.kind, "boardingPass");
+});
+
 test("Vertex schema converts nullable JSON schema values", () => {
   assert.deepEqual(
     toVertexSchema({ type: ["string", "null"] }),

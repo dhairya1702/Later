@@ -12,20 +12,20 @@ const SUPPORTED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
 const categories = [
   "watch", "listen", "eat", "go", "buy", "read", "doItem", "remember",
-  "offer", "inspire", "photo", "other",
+  "offer", "photo", "other",
 ];
 
 const kinds = [
   "concert", "music", "shopping", "food", "movie", "show", "activity",
-  "task", "book", "article", "place", "event", "information", "offer",
-  "photo", "style", "home", "recipe", "document", "meme", "product",
+  "task", "job", "book", "article", "place", "event", "information", "offer",
+  "photo", "document", "meme",
   "chat", "story", "email", "boardingPass", "app", "map", "socialPost",
   "comments", "lockScreen", "other",
 ];
 
 const surfaces = [
   "chat", "story", "email", "boardingPass", "appStore", "map",
-  "redditPost", "comments", "lockScreen", "unknown",
+  "redditPost", "comments", "homeScreen", "lockScreen", "unknown",
 ];
 
 const sourceApps = [
@@ -165,9 +165,15 @@ Choose only from the supplied enum values. Write a short useful title for a card
 
 sourceApp identifies the app or platform whose UI is visibly shown; use linkedin for recognizable LinkedIn screenshots. sourceContext is optional, visibly supported context about that source. For Reddit, return the exact community name normalized as r/CommunityName when it is visible. Never guess a community from the post topic, username, or content. Return null for sourceContext when the community is absent or ambiguous, and for non-Reddit sources.
 
-likelyAccidental is true only when the image is very likely an unintended screenshot: a plain iPhone Home Screen, or a plain Lock Screen containing only ordinary clock/date/status chrome and no meaningful saved content. Be conservative. Return false for Lock Screens with meaningful notifications, music or media, navigation, live activities, useful information, or a wallpaper/photo that appears to be the subject. Never infer accidental merely because surface is lockScreen.
+For a LinkedIn job listing or job-posting screen, always use sourceApp=linkedin and kind=job. Use category=remember for a saved job listing unless the screenshot contains a clear application task or deadline, in which case use doItem. A job title, employer, salary, workplace, and employment details are job information, not productDetails. Never classify a job listing as shopping or buy.
 
-Category rules: use offer when the main saved value is a redeemable promotion, coupon, discount code, or limited-time deal. Use buy for a specific product the user may want to purchase, not for a coupon merely because redemption involves a purchase. Use eat for a restaurant or dish recommendation; use go for a destination, venue, trip, or event; use remember for information without a clearer actionable intent.
+For a plain iPhone Home Screen showing a grid of app icons, always use surface=homeScreen, category=other, kind=other, likelyAccidental=true, and needsReview=false. Never interpret the word "home" in Home Screen as interior design, decor, architecture, or inspiration.
+
+likelyAccidental is true only when the image is very likely an unintended screenshot: a plain iPhone Home Screen; a plain Lock Screen containing only ordinary clock/date/status chrome; or an actively ringing iPhone alarm screen showing controls such as Snooze and Stop. Alarm captures made while dismissing or snoozing an alarm are likely accidental, not information to remember. Be conservative otherwise. Return false for Lock Screens with meaningful notifications, music or media, navigation, live activities, useful information, or a wallpaper/photo that appears to be the subject. Never infer accidental merely because surface is lockScreen.
+
+Category rules: use offer when the main saved value is a redeemable promotion, coupon, discount code, or limited-time deal. Use buy for a specific product the user may want to purchase, not for a coupon merely because redemption involves a purchase. Use eat for a restaurant, dish, or recipe; use go for a destination, venue, trip, or event; use photo for an image whose main value is visual; use remember for information without a clearer actionable intent. There is no inspiration category.
+
+The legacy kind value boardingPass is the broad Travel kind. Use it for boarding passes, flight details, itineraries, hotel reservations, and train or bus tickets. Pair it with category=go. It is not limited to a literal boarding pass.
 
 Facts must be visibly supported by the screenshot. Never invent a date, price, address, URL, coupon, or location from world knowledge. dateText/timeText are only for a date or time meaningfully attached to the saved subject, and dateRole says why it matters. Never extract status-bar time, screenshot/capture time, chat-message timestamp, last-seen time, post age, upload time, or other app chrome. If a date/time has no event, expiration, deadline, reservation, delivery, or travel role, return dateText, timeText, and dateRole as null. Use null when any fact is absent or ambiguous. Never put incidental UI timestamps in title, summary, or suggestedAction. visibleText should contain the important readable text, not every piece of navigation chrome. Evidence should be 1-4 short visible cues, never hidden chain-of-thought.
 
@@ -430,6 +436,15 @@ function parseJSONText(text) {
 
 export function validateAnalysis(value) {
   validateSchemaValue(value, schema, "analysis");
+  if (value.surface === "homeScreen") {
+    return {
+      ...value,
+      category: "other",
+      kind: "other",
+      likelyAccidental: true,
+      needsReview: false,
+    };
+  }
   return value;
 }
 

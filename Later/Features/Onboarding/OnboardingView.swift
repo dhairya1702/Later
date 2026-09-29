@@ -68,11 +68,14 @@ struct OnboardingView: View {
                     illustration: .privacy
                 )
                 .tag(1)
+
+                ShareOnboardingPageView()
+                    .tag(2)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
 
             HStack(spacing: 8) {
-                ForEach(0..<2) { index in
+                ForEach(0..<3) { index in
                     Capsule()
                         .fill(index == page ? Color.accentColor : Color.secondary.opacity(0.22))
                         .frame(width: index == page ? 24 : 8, height: 8)
@@ -80,10 +83,12 @@ struct OnboardingView: View {
             }
             .padding(.bottom, 22)
 
-            if page == 0 {
+            if page < 2 {
                 Button {
-                    hasSeenIntroduction = true
-                    withAnimation { page = 1 }
+                    if page == 0 {
+                        hasSeenIntroduction = true
+                    }
+                    withAnimation { page += 1 }
                 } label: {
                     Text("Next").foregroundStyle(prominentLabelColor)
                 }
@@ -103,12 +108,19 @@ struct OnboardingView: View {
                 Button {
                     Task { await requestPhotosAndScan() }
                 } label: {
-                    Text("Allow Photos Access").foregroundStyle(prominentLabelColor)
+                    Text("Continue").foregroundStyle(prominentLabelColor)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 24)
+            }
+
+            if page == 2 {
+                Text("Don’t see Later? Tap More once to add it.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 8)
             }
 
             Spacer().frame(height: 24)

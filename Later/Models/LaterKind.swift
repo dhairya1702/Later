@@ -9,6 +9,7 @@ enum LaterKind: String, Codable, CaseIterable, Identifiable {
     case show
     case activity
     case task
+    case job
     case book
     case article
     case place
@@ -16,12 +17,8 @@ enum LaterKind: String, Codable, CaseIterable, Identifiable {
     case information
     case offer
     case photo
-    case style
-    case home
-    case recipe
     case document
     case meme
-    case product
     case chat
     case story
     case email
@@ -45,6 +42,7 @@ enum LaterKind: String, Codable, CaseIterable, Identifiable {
         case .show: "Show"
         case .activity: "Activity"
         case .task: "To-do"
+        case .job: "Job"
         case .book: "Book"
         case .article: "Article"
         case .place: "Place"
@@ -52,16 +50,12 @@ enum LaterKind: String, Codable, CaseIterable, Identifiable {
         case .information: "Remember"
         case .offer: "Offer"
         case .photo: "Photo"
-        case .style: "Style inspiration"
-        case .home: "Home inspiration"
-        case .recipe: "Food inspiration"
         case .document: "Document"
         case .meme: "Meme"
-        case .product: "Product inspiration"
         case .chat: "Chat"
         case .story: "Story"
         case .email: "Email"
-        case .boardingPass: "Boarding pass"
+        case .boardingPass: "Travel"
         case .app: "App"
         case .map: "Map"
         case .socialPost: "Social post"
@@ -81,6 +75,7 @@ enum LaterKind: String, Codable, CaseIterable, Identifiable {
         case .show: "tv.fill"
         case .activity: "figure.hiking"
         case .task: "checklist"
+        case .job: "briefcase.fill"
         case .book: "book.closed.fill"
         case .article: "doc.text.fill"
         case .place: "mappin.and.ellipse"
@@ -88,16 +83,12 @@ enum LaterKind: String, Codable, CaseIterable, Identifiable {
         case .information: "brain.head.profile.fill"
         case .offer: "tag.fill"
         case .photo: "camera.fill"
-        case .style: "tshirt.fill"
-        case .home: "house.fill"
-        case .recipe: "takeoutbag.and.cup.and.straw.fill"
         case .document: "doc.text.viewfinder"
         case .meme: "face.smiling.inverse"
-        case .product: "shippingbox.fill"
         case .chat: "bubble.left.and.bubble.right.fill"
         case .story: "circle.dashed.inset.filled"
         case .email: "envelope.fill"
-        case .boardingPass: "airplane.boarding"
+        case .boardingPass: "airplane.departure"
         case .app: "app.badge.fill"
         case .map: "map.fill"
         case .socialPost: "text.bubble.fill"
@@ -118,7 +109,6 @@ enum LaterKind: String, Codable, CaseIterable, Identifiable {
         case .doItem: .task
         case .remember: .information
         case .offer: .offer
-        case .inspire: .photo
         case .photo: .photo
         case .other: .other
         }

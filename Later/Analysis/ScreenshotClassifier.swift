@@ -118,6 +118,7 @@ actor ScreenshotClassifier {
             visualModelAvailable: image == nil ? nil : visual != nil,
             usedVisualClassification: visual != nil,
             screenDetection: screenDetection.surface == .unknown ? nil : screenDetection,
+            likelyAccidental: screenDetection.surface == .homeScreen ? true : nil,
             forceAbstention: hasAmbiguousEventDates
         )
     }
@@ -132,6 +133,7 @@ actor ScreenshotClassifier {
         case .map: .map
         case .redditPost: .socialPost
         case .comments: .comments
+        case .homeScreen: .other
         case .lockScreen: .lockScreen
         case .unknown: .other
         }
@@ -163,6 +165,8 @@ actor ScreenshotClassifier {
             return strongOfferEvidence(in: features) ? .offer : .read
         case .comments:
             return strongOfferEvidence(in: features) ? .offer : .remember
+        case .homeScreen:
+            return .other
         case .lockScreen:
             return .other
         case .unknown:
@@ -178,7 +182,7 @@ actor ScreenshotClassifier {
         switch detection.surface {
         case .chat, .story, .email, .redditPost, .comments:
             return strongOfferEvidence(in: features) ? confidence : min(confidence, 0.25)
-        case .appStore, .map, .boardingPass, .lockScreen:
+        case .appStore, .map, .boardingPass, .homeScreen, .lockScreen:
             return 0
         case .unknown:
             return confidence

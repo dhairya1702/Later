@@ -91,10 +91,17 @@ struct ScreenshotProcessingService {
 
 extension VisionAnalysis {
     var classification: ClassificationResult {
-        let mappedCategory = LaterCategory(rawValue: category) ?? .other
-        let mappedKind = LaterKind(rawValue: kind) ?? .fallback(for: mappedCategory)
         let mappedSurface = ScreenshotSurface(rawValue: surface) ?? .unknown
+        let reportedCategory = LaterCategory(rawValue: category) ?? .other
+        let mappedCategory: LaterCategory = mappedSurface == .homeScreen ? .other : reportedCategory
+        let mappedKind: LaterKind = mappedSurface == .homeScreen
+            ? .other
+            : LaterKind(rawValue: kind) ?? .fallback(for: mappedCategory)
         let mappedSourceApp = ScreenshotSourceApp(rawValue: sourceApp) ?? .unknown
+        let isActiveAlarmScreen = Self.isActiveAlarmScreen(
+            surface: mappedSurface,
+            visibleText: visibleText
+        )
         let extractedFacts = ExtractedFacts(
             dateTexts: facts.dateText.map { [$0] } ?? [],
             timeTexts: facts.timeText.map { [$0] } ?? [],
@@ -183,11 +190,22 @@ extension VisionAnalysis {
             visualModelAvailable: true,
             usedVisualClassification: true,
             screenDetection: detection,
-            likelyAccidental: likelyAccidental,
+            likelyAccidental: likelyAccidental || isActiveAlarmScreen || mappedSurface == .homeScreen,
             actionableEntities: mappedEntities,
             detectedMedia: mappedMedia,
             productDetails: mappedProduct
         )
+    }
+
+    static func isActiveAlarmScreen(
+        surface: ScreenshotSurface,
+        visibleText: String
+    ) -> Bool {
+        guard surface == .lockScreen else { return false }
+        let normalized = visibleText.lowercased()
+        return normalized.range(of: #"\balarm\b"#, options: .regularExpression) != nil
+            && normalized.range(of: #"\bsnooze\b"#, options: .regularExpression) != nil
+            && normalized.range(of: #"\bstop\b"#, options: .regularExpression) != nil
     }
 
 }

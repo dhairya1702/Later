@@ -6,6 +6,7 @@ struct ScreenSourceDetector {
         let lines = normalized.components(separatedBy: .newlines)
         var candidates: [(ScreenshotSurface, ScreenshotSourceApp, Double, [String])] = []
 
+        candidates.append(homeScreenCandidate(text: normalized, lines: lines))
         candidates.append(lockScreenCandidate(text: normalized, blocks: blocks))
         candidates.append(appStoreCandidate(text: normalized, lines: lines))
         candidates.append(mapCandidate(text: normalized))
@@ -81,6 +82,32 @@ struct ScreenSourceDetector {
             evidence.append("lock-screen date beneath time")
         }
         return (.lockScreen, .unknown, value, evidence)
+    }
+
+    private func homeScreenCandidate(
+        text: String,
+        lines: [String]
+    ) -> (ScreenshotSurface, ScreenshotSourceApp, Double, [String]) {
+        let normalizedLines = Set(lines.map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        })
+        let commonApps = [
+            "messages", "calendar", "photos", "camera", "mail", "maps", "weather",
+            "clock", "notes", "reminders", "app store", "settings", "phone", "safari",
+            "music", "facetime", "health", "wallet"
+        ]
+        let visibleApps = commonApps.filter(normalizedLines.contains)
+        var value = Double(visibleApps.count)
+        var evidence = visibleApps.map { "\($0) app icon" }
+        if visibleApps.count >= 5 {
+            value += 2
+            evidence.append("grid of common app labels")
+        }
+        if matches(text, pattern: #"\bapp library\b"#) {
+            value += 4
+            evidence.append("App Library label")
+        }
+        return (.homeScreen, .unknown, value, evidence)
     }
 
     private func appStoreCandidate(
@@ -338,6 +365,7 @@ struct ScreenSourceDetector {
 
     private func threshold(for surface: ScreenshotSurface) -> Double {
         switch surface {
+        case .homeScreen: 7
         case .lockScreen: 6
         case .story: 9
         case .email: 6

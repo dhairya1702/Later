@@ -16,11 +16,11 @@ struct VisualClassificationRouter {
             (["coupon", "voucher", "ticket"], 0.45, .offer, .offer),
             (["meme", "comic", "cartoon", "emoji"], 0.30, .photo, .meme),
             (["document", "receipt", "invoice", "handwriting"], 0.70, .remember, .document),
-            (["clothing", "apparel", "outfit", "dress", "shirt", "shoe", "sneaker", "hairstyle", "hair", "makeup", "jewelry"], 0.22, .inspire, .style),
-            (["interior", "furniture", "living room", "bedroom", "kitchen", "home decor", "architecture", "building"], 0.22, .inspire, .home),
-            (["food", "dish", "meal", "dessert", "bread", "cake", "pizza", "burger", "drink", "cuisine"], 0.22, .inspire, .recipe),
-            (["product", "package", "appliance", "electronics", "gadget"], 0.40, .inspire, .product),
-            (["landscape", "scenery", "beach", "mountain", "park", "garden", "travel"], 0.22, .inspire, .place)
+            (["clothing", "apparel", "outfit", "dress", "shirt", "shoe", "sneaker", "hairstyle", "hair", "makeup", "jewelry"], 0.35, .photo, .photo),
+            (["interior", "furniture", "living room", "bedroom", "kitchen", "home decor"], 0.40, .photo, .photo),
+            (["food", "dish", "meal", "dessert", "bread", "cake", "pizza", "burger", "drink", "cuisine"], 0.30, .eat, .food),
+            (["product", "package", "appliance", "electronics", "gadget"], 0.45, .buy, .shopping),
+            (["landscape", "scenery", "beach", "mountain", "park", "garden", "travel"], 0.30, .go, .place)
         ]
 
         for route in routes {

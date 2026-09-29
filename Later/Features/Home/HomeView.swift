@@ -253,8 +253,8 @@ private struct ScreenshotCleanupView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(item.title).font(.headline).lineLimit(2)
                                 if let reason = ItemRelevancePolicy().cleanupReason(for: item) {
-                                    Text(reason.displayName)
-                                        .font(.caption2.weight(.bold))
+                                    Label(reason.displayName, systemImage: cleanupIcon(reason))
+                                        .font(.caption2)
                                         .foregroundStyle(tagColor(reason))
                                         .padding(.horizontal, 9)
                                         .padding(.vertical, 4)
@@ -324,6 +324,15 @@ private struct ScreenshotCleanupView: View {
         }
     }
 
+    private func cleanupIcon(_ reason: ItemCleanupReason) -> String {
+        switch reason {
+        case .likelyAccidental: "exclamationmark.triangle.fill"
+        case .expired: "clock.badge.exclamationmark"
+        case .datePassed: "calendar.badge.exclamationmark"
+        case .old: "clock.arrow.circlepath"
+        }
+    }
+
     private func markAsDone(_ item: LaterItem) {
         item.completedAt = .now
         item.statusRaw = "completed"
@@ -387,7 +396,6 @@ private struct CategoriesView: View {
     private var categoryCounts: [(category: LaterCategory, count: Int)] {
         let grouped = Dictionary(grouping: visibleItems, by: \.category)
         return LaterCategory.allCases.compactMap { category in
-            guard category != .other else { return nil }
             guard let count = grouped[category]?.count, count > 0 else { return nil }
             return (category, count)
         }
@@ -614,22 +622,22 @@ private struct LaterItemRow: View {
             )
 
             VStack(alignment: .leading, spacing: 4) {
-                if item.kind != .other || item.isOffer == true {
-                    HStack(spacing: 6) {
-                        if item.kind != .other {
-                            Label(item.kind.displayName.uppercased(), systemImage: item.kind.icon)
-                        }
-                        if item.isOffer == true && item.kind != .offer {
-                            Label("OFFER", systemImage: "tag.fill")
-                        }
+                HStack(spacing: 6) {
+                    if item.sourceApp == .linkedin {
+                        Label("LINKEDIN", systemImage: "briefcase.fill")
+                    } else {
+                        Label(item.kind.displayName.uppercased(), systemImage: item.kind.icon)
                     }
-                    .font(.caption2.bold())
-                    .foregroundStyle(categoryColor)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .background(categoryColor.opacity(0.13))
-                    .clipShape(Capsule())
+                    if item.sourceApp != .linkedin, item.isOffer == true && item.kind != .offer {
+                        Label("OFFER", systemImage: "tag.fill")
+                    }
                 }
+                .font(.caption2.bold())
+                .foregroundStyle(categoryColor)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(categoryColor.opacity(0.13))
+                .clipShape(Capsule())
                 Text(item.title)
                     .font(.headline)
                     .lineLimit(2)
@@ -667,12 +675,12 @@ private struct LaterItemRow: View {
         case .movie, .show: .indigo
         case .activity: .green
         case .task: .mint
+        case .job: .blue
         case .book, .article: .teal
         case .place, .event: .blue
         case .information: .brown
         case .offer: .red
         case .photo: .cyan
-        case .style, .home, .recipe, .product: .purple
         case .document: .brown
         case .meme: .yellow
         case .chat, .story, .comments, .email: .green

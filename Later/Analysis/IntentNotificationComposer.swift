@@ -66,11 +66,6 @@ struct IntentNotificationComposer {
                 title: groundedTitle(item, fallback: "Something you wanted to remember"),
                 body: timingBody(for: item, referenceDate: referenceDate) ?? "Worth keeping in mind."
             )
-        case .inspire:
-            return IntentNotificationCopy(
-                title: groundedTitle(item, fallback: "An idea you wanted to revisit"),
-                body: "An idea worth coming back to."
-            )
         case .photo:
             return IntentNotificationCopy(
                 title: groundedTitle(item, fallback: "A photo you wanted to revisit"),

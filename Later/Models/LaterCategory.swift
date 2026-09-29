@@ -10,7 +10,6 @@ enum LaterCategory: String, Codable, CaseIterable, Identifiable {
     case doItem
     case remember
     case offer
-    case inspire
     case photo
     case other
 
@@ -27,7 +26,6 @@ enum LaterCategory: String, Codable, CaseIterable, Identifiable {
         case .doItem: "Do"
         case .remember: "Remember"
         case .offer: "Offer"
-        case .inspire: "Inspiration"
         case .photo: "Photo"
         case .other: "Other"
         }
@@ -44,7 +42,6 @@ enum LaterCategory: String, Codable, CaseIterable, Identifiable {
         case .doItem: "checkmark.circle.fill"
         case .remember: "brain.head.profile.fill"
         case .offer: "tag.fill"
-        case .inspire: "sparkles"
         case .photo: "camera.fill"
         case .other: "square.grid.2x2.fill"
         }
@@ -61,7 +58,6 @@ enum LaterCategory: String, Codable, CaseIterable, Identifiable {
         case .doItem: "Open"
         case .remember: "Saved"
         case .offer: "Available"
-        case .inspire: "Saved idea"
         case .photo: "Saved photo"
         case .other: "Saved"
         }
@@ -76,7 +72,7 @@ enum LaterCategory: String, Codable, CaseIterable, Identifiable {
         case .buy: "Bought"
         case .read: "Read"
         case .doItem: "Done"
-        case .remember, .offer, .inspire, .photo, .other: "Done"
+        case .remember, .offer, .photo, .other: "Done"
         }
     }
 }
