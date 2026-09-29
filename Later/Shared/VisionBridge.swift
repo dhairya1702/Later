@@ -1,3 +1,5 @@
+import CryptoKit
+import DeviceCheck
 import Foundation
 import UIKit
 
@@ -128,10 +130,13 @@ struct VisionBridgeClient {
         request.httpMethod = "POST"
         request.timeoutInterval = timeout
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
-        if let token = Bundle.main.object(forInfoDictionaryKey: "LaterAnalysisToken") as? String,
-           !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let authorization = BackendCredentialStore.authorizationHeader {
+            request.setValue(authorization, forHTTPHeaderField: "Authorization")
         }
+        request.setValue(
+            BackendCredentialStore.installationID,
+            forHTTPHeaderField: "X-Later-Install-ID"
+        )
         return request
     }
 
@@ -147,6 +152,254 @@ struct VisionBridgeClient {
             throw VisionBridgeClientError.server(message)
         }
         return try JSONDecoder().decode(VisionBridgeEnvelope.self, from: responseData).analysis
+    }
+}
+
+enum BackendCredentialStore {
+    private static var defaults: UserDefaults? {
+        UserDefaults(suiteName: ShareInboxConfiguration.appGroup)
+    }
+
+    static var installationID: String {
+        if let existing = defaults?.string(forKey: ShareInboxConfiguration.installationIDKey),
+           UUID(uuidString: existing) != nil {
+            return existing
+        }
+        let value = UUID().uuidString.lowercased()
+        defaults?.set(value, forKey: ShareInboxConfiguration.installationIDKey)
+        return value
+    }
+
+    static var appAttestKeyID: String? {
+        get { defaults?.string(forKey: ShareInboxConfiguration.appAttestKeyIDKey) }
+        set { defaults?.set(newValue, forKey: ShareInboxConfiguration.appAttestKeyIDKey) }
+    }
+
+    static var authorizationHeader: String? {
+        if let token = defaults?.string(forKey: ShareInboxConfiguration.sessionTokenKey),
+           defaults?.double(forKey: ShareInboxConfiguration.sessionExpirationKey) ?? 0
+            > Date.now.timeIntervalSince1970 {
+            return "AppAttest \(token)"
+        }
+        if let token = Bundle.main.object(forInfoDictionaryKey: "LaterAnalysisToken") as? String,
+           !token.isEmpty {
+            return "Bearer \(token)"
+        }
+        return nil
+    }
+
+    static var sessionIsFresh: Bool {
+        let expiration = defaults?.double(
+            forKey: ShareInboxConfiguration.sessionExpirationKey
+        ) ?? 0
+        return expiration > Date.now.addingTimeInterval(60 * 60).timeIntervalSince1970
+    }
+
+    static func saveSession(_ session: BackendSession) {
+        defaults?.set(session.token, forKey: ShareInboxConfiguration.sessionTokenKey)
+        defaults?.set(
+            session.expiresAt / 1000,
+            forKey: ShareInboxConfiguration.sessionExpirationKey
+        )
+    }
+
+    static func clearAttestation() {
+        defaults?.removeObject(forKey: ShareInboxConfiguration.appAttestKeyIDKey)
+        defaults?.removeObject(forKey: ShareInboxConfiguration.sessionTokenKey)
+        defaults?.removeObject(forKey: ShareInboxConfiguration.sessionExpirationKey)
+    }
+}
+
+private struct BackendChallenge: Decodable {
+    let challenge: String
+}
+
+struct BackendSession: Decodable {
+    let token: String
+    let expiresAt: Double
+}
+
+private struct BackendAttestationRequest: Encodable {
+    let keyID: String
+    let challenge: String
+    let attestationObject: String
+}
+
+private struct BackendAssertionRequest: Encodable {
+    let keyID: String
+    let challenge: String
+    let assertion: String
+}
+
+private struct BackendSecurityErrorBody: Decodable {
+    let error: String
+    let code: String?
+}
+
+private enum BackendSecurityClientError: LocalizedError {
+    case unavailable
+    case invalidResponse
+    case server(message: String, code: String?)
+
+    var errorDescription: String? {
+        switch self {
+        case .unavailable: "App Attest is unavailable."
+        case .invalidResponse: "The security service returned an invalid response."
+        case .server(let message, _): message
+        }
+    }
+
+    var code: String? {
+        guard case .server(_, let code) = self else { return nil }
+        return code
+    }
+}
+
+actor BackendAuthManager {
+    static let shared = BackendAuthManager()
+
+    private let service = DCAppAttestService.shared
+    private var isPreparing = false
+
+    func prepareCredential() async {
+        guard service.isSupported,
+              !BackendCredentialStore.sessionIsFresh,
+              !isPreparing else { return }
+        isPreparing = true
+        defer { isPreparing = false }
+
+        do {
+            let challenge = try await fetchChallenge()
+            if let keyID = BackendCredentialStore.appAttestKeyID {
+                do {
+                    let assertion = try await generateAssertion(
+                        keyID: keyID,
+                        challenge: challenge.challenge
+                    )
+                    let session: BackendSession = try await post(
+                        path: "auth/assert",
+                        body: BackendAssertionRequest(
+                            keyID: keyID,
+                            challenge: challenge.challenge,
+                            assertion: assertion.base64EncodedString()
+                        )
+                    )
+                    BackendCredentialStore.saveSession(session)
+                    return
+                } catch let error as BackendSecurityClientError
+                    where error.code == "unknown_key" {
+                    BackendCredentialStore.clearAttestation()
+                } catch {
+                    if (error as NSError).domain == DCError.errorDomain {
+                        BackendCredentialStore.clearAttestation()
+                    } else {
+                        throw error
+                    }
+                }
+            }
+
+            try await enroll(challenge: challenge.challenge)
+        } catch {
+            // The legacy credential remains available during migration. Enrollment is
+            // intentionally silent and will retry the next time the main app opens.
+        }
+    }
+
+    private func enroll(challenge: String) async throws {
+        let keyID = try await generateKey()
+        // Persist before attesting so a lost HTTP response can be recovered with an
+        // assertion instead of abandoning a successfully registered hardware key.
+        BackendCredentialStore.appAttestKeyID = keyID
+        let clientDataHash = Data(SHA256.hash(data: Data(challenge.utf8)))
+        let attestation = try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Data, Error>) in
+            service.attestKey(keyID, clientDataHash: clientDataHash) { data, error in
+                if let data {
+                    continuation.resume(returning: data)
+                } else {
+                    continuation.resume(throwing: error ?? BackendSecurityClientError.invalidResponse)
+                }
+            }
+        }
+        let session: BackendSession = try await post(
+            path: "auth/attest",
+            body: BackendAttestationRequest(
+                keyID: keyID,
+                challenge: challenge,
+                attestationObject: attestation.base64EncodedString()
+            )
+        )
+        BackendCredentialStore.saveSession(session)
+    }
+
+    private func generateKey() async throws -> String {
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<String, Error>) in
+            service.generateKey { keyID, error in
+                if let keyID {
+                    continuation.resume(returning: keyID)
+                } else {
+                    continuation.resume(throwing: error ?? BackendSecurityClientError.unavailable)
+                }
+            }
+        }
+    }
+
+    private func generateAssertion(keyID: String, challenge: String) async throws -> Data {
+        let hash = Data(SHA256.hash(data: Data(challenge.utf8)))
+        return try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Data, Error>) in
+            service.generateAssertion(keyID, clientDataHash: hash) { assertion, error in
+                if let assertion {
+                    continuation.resume(returning: assertion)
+                } else {
+                    continuation.resume(throwing: error ?? BackendSecurityClientError.unavailable)
+                }
+            }
+        }
+    }
+
+    private func fetchChallenge() async throws -> BackendChallenge {
+        let request = try request(path: "auth/challenge", body: Data("{}".utf8))
+        return try await send(request)
+    }
+
+    private func post<Request: Encodable, Response: Decodable>(
+        path: String,
+        body: Request
+    ) async throws -> Response {
+        let data = try JSONEncoder().encode(body)
+        return try await send(request(path: path, body: data))
+    }
+
+    private func request(path: String, body: Data) throws -> URLRequest {
+        guard let baseURLString = Bundle.main.object(
+            forInfoDictionaryKey: "LaterVisionBaseURL"
+        ) as? String,
+              let url = URL(string: baseURLString)?.appendingPathComponent(path) else {
+            throw BackendSecurityClientError.unavailable
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        request.httpBody = body
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        return request
+    }
+
+    private func send<Response: Decodable>(_ request: URLRequest) async throws -> Response {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw BackendSecurityClientError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let body = try? JSONDecoder().decode(BackendSecurityErrorBody.self, from: data)
+            throw BackendSecurityClientError.server(
+                message: body?.error ?? "Security request failed with HTTP \(http.statusCode).",
+                code: body?.code
+            )
+        }
+        return try JSONDecoder().decode(Response.self, from: data)
     }
 }
 

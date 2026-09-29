@@ -66,7 +66,9 @@ struct LaterApp: App {
             .preferredColorScheme(appearance.colorScheme)
             .task(id: hasCompletedOnboarding) {
                 guard hasCompletedOnboarding else { return }
+                async let prepareSecurity: Void = BackendAuthManager.shared.prepareCredential()
                 await NotificationManager.shared.activate()
+                _ = await prepareSecurity
             }
         }
         .modelContainer(modelContainer)

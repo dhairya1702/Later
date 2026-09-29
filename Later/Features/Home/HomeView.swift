@@ -10,6 +10,10 @@ struct HomeView: View {
 
     @State private var authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
     @State private var selectedItem: LaterItem?
+    @State private var selectedItemIDs: Set<UUID> = []
+    @State private var pendingDeletion: [LaterItem] = []
+    @State private var showingDeleteConfirmation = false
+    @State private var actionError: String?
     @State private var showingCleanup = false
     @ObservedObject var discoveryCoordinator: ScreenshotDiscoveryCoordinator
 
@@ -75,6 +79,33 @@ struct HomeView: View {
             .navigationDestination(isPresented: $showingCleanup) {
                 ScreenshotCleanupView()
             }
+            .confirmationDialog(
+                pendingDeletion.count == 1 ? "Delete this screenshot?" : "Delete \(pendingDeletion.count) screenshots?",
+                isPresented: $showingDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                if !pendingDeletion.isEmpty {
+                    Button(
+                        pendingDeletion.contains(where: \.hasPhotoLibraryAsset)
+                            ? "Delete from Later and Photos"
+                            : "Delete from Later",
+                        role: .destructive
+                    ) {
+                        let targets = pendingDeletion
+                        Task { await deleteItems(targets) }
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingDeletion = []
+                }
+            } message: {
+                Text(deleteConfirmationMessage)
+            }
+            .alert("Couldn’t complete action", isPresented: actionErrorIsPresented) {
+                Button("OK") { actionError = nil }
+            } message: {
+                Text(actionError ?? "Please try again.")
+            }
         }
         .task {
             await catchUp()
@@ -121,33 +152,94 @@ struct HomeView: View {
                     .buttonStyle(.plain)
 
                     Button {
-                        withAnimation { toggleCompletion(item) }
+                        withAnimation { toggleSelection(item) }
                     } label: {
-                        Image(systemName: "circle")
+                        Image(systemName: selectedItemIDs.contains(item.id) ? "checkmark.circle.fill" : "circle")
                             .font(.title2)
-                            .foregroundStyle(Color.secondary)
+                            .foregroundStyle(selectedItemIDs.contains(item.id) ? Color.accentColor : Color.secondary)
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Mark as done")
+                    .accessibilityLabel(selectedItemIDs.contains(item.id) ? "Deselect \(item.title)" : "Select \(item.title)")
+                    .accessibilityAddTraits(selectedItemIDs.contains(item.id) ? .isSelected : [])
                 }
-                .swipeActions(edge: .trailing) {
-                    Button {
-                        toggleCompletion(item)
-                    } label: {
-                        Label("Complete", systemImage: "checkmark")
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    if selectedItemIDs.isEmpty {
+                        Button {
+                            markDone(item)
+                        } label: {
+                            Label("Mark Done", systemImage: "checkmark")
+                        }
+                        .tint(.green)
                     }
-                    .tint(.green)
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    if selectedItemIDs.isEmpty {
+                        Button(role: .destructive) {
+                            prepareToDelete([item])
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
                 }
             }
         }
         .listStyle(.plain)
         .refreshable { await catchUp() }
+        .safeAreaInset(edge: .bottom) {
+            if !selectedItemIDs.isEmpty {
+                selectionActions
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .onChange(of: Set(laterItems.map(\.id))) { _, visibleItemIDs in
+            selectedItemIDs.formIntersection(visibleItemIDs)
+        }
+    }
+
+    private var selectionActions: some View {
+        VStack(spacing: 10) {
+            Text("\(selectedItemIDs.count) selected")
+                .font(.subheadline.weight(.semibold))
+
+            HStack(spacing: 12) {
+                Button {
+                    withAnimation { selectedItemIDs.removeAll() }
+                } label: {
+                    Label("Cancel", systemImage: "xmark")
+                }
+                .buttonStyle(.bordered)
+
+                Spacer(minLength: 0)
+
+                Button {
+                    markSelectedDone()
+                } label: {
+                    Label("Mark Done", systemImage: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+
+                Button(role: .destructive) {
+                    prepareToDelete(selectedItems)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 12)
+        .background(.regularMaterial)
     }
 
     private var laterItems: [LaterItem] {
         items.filter { !$0.isCompleted && !$0.isDuplicateCopy }
+    }
+
+    private var selectedItems: [LaterItem] {
+        laterItems.filter { selectedItemIDs.contains($0.id) }
     }
 
     private var detailIsPresented: Binding<Bool> {
@@ -159,12 +251,71 @@ struct HomeView: View {
         )
     }
 
-    private func toggleCompletion(_ item: LaterItem) {
-        item.completedAt = item.isCompleted ? nil : .now
-        item.statusRaw = item.isCompleted ? "completed" : "open"
-        item.updatedAt = .now
-        try? modelContext.save()
-        Task { await NotificationManager.shared.reconcile() }
+    private func toggleSelection(_ item: LaterItem) {
+        if !selectedItemIDs.insert(item.id).inserted {
+            selectedItemIDs.remove(item.id)
+        }
+    }
+
+    private func markDone(_ item: LaterItem) {
+        markDone([item])
+    }
+
+    private func markSelectedDone() {
+        markDone(selectedItems)
+    }
+
+    private func markDone(_ targets: [LaterItem]) {
+        guard !targets.isEmpty else { return }
+        let now = Date.now
+        for item in targets {
+            item.completedAt = now
+            item.statusRaw = "completed"
+            item.updatedAt = now
+        }
+        do {
+            try modelContext.save()
+            withAnimation { selectedItemIDs.subtract(targets.map(\.id)) }
+            Task { await NotificationManager.shared.reconcile() }
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    private func prepareToDelete(_ targets: [LaterItem]) {
+        guard !targets.isEmpty else { return }
+        pendingDeletion = targets
+        showingDeleteConfirmation = true
+    }
+
+    @MainActor
+    private func deleteItems(_ targets: [LaterItem]) async {
+        do {
+            try await ItemDeletionService(context: modelContext).delete(targets)
+            withAnimation { selectedItemIDs.subtract(targets.map(\.id)) }
+            pendingDeletion = []
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    private var deleteConfirmationMessage: String {
+        guard !pendingDeletion.isEmpty else { return "" }
+        if pendingDeletion.contains(where: \.hasPhotoLibraryAsset) {
+            return pendingDeletion.count == 1
+                ? "This removes the save from Later and deletes the original from Photos. iOS will ask you to confirm. The original is recoverable in Photos → Recently Deleted."
+                : "This removes the selected saves from Later and deletes their linked originals from Photos. iOS will ask you to confirm. The originals are recoverable in Photos → Recently Deleted."
+        }
+        return pendingDeletion.count == 1
+            ? "This removes the saved image and its details from Later. No original in Photos is linked to this save."
+            : "This removes the selected images and their details from Later. No originals in Photos are linked to these saves."
+    }
+
+    private var actionErrorIsPresented: Binding<Bool> {
+        Binding(
+            get: { actionError != nil },
+            set: { if !$0 { actionError = nil } }
+        )
     }
 
     private func openPendingNotification() {
@@ -373,6 +524,15 @@ private struct SettingsView: View {
                 LabeledContent("App", value: "Later")
                 LabeledContent("Version", value: appVersion)
             }
+
+            Section("Privacy & Support") {
+                NavigationLink("Privacy") {
+                    PrivacyView()
+                }
+                NavigationLink("Support") {
+                    SupportView()
+                }
+            }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -381,6 +541,96 @@ private struct SettingsView: View {
     private var appVersion: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         return version ?? "1.0"
+    }
+}
+
+private struct PrivacyView: View {
+    var body: some View {
+        List {
+            Section {
+                Text("Later is built to organize screenshots without building a profile about you. There are no accounts, ads, or cross-app tracking.")
+            }
+
+            Section("On your device") {
+                Text("Later reads only the photos you allow. Apple Vision performs text recognition on your device. Screenshot records, extracted details, completion state, and preferences are stored locally on your device and in Later’s private app-group container.")
+            }
+
+            Section("Screenshot analysis") {
+                Text("To understand a screenshot, Later sends a resized image over encrypted HTTPS to Later’s analysis service, which uses Google Vertex AI. The image is processed in memory to return structured details. Later’s backend does not save the image, recognized text, title, or analysis result, and does not include that content in operational logs.")
+            }
+
+            Section("Security and delivery") {
+                Text("Later uses Apple App Attest and a random installation identifier to prevent abuse and enforce service limits. Security records may include an App Attest public key, assertion and rate-limit counters, and timestamps. If you share an image to Later, an APNs device token and item identifier may be used to deliver the completion notification.")
+            }
+
+            Section("Your choices") {
+                Text("You can change Photos and notification access in iOS Settings. Deleting an item removes Later’s local copy and details. If it is linked to Photos, you can also ask iOS to delete the original; Photos keeps it in Recently Deleted according to your Photos settings.")
+            }
+
+            if let privacyURL = LaterExternalLinks.privacy {
+                Section {
+                    Link("View Privacy Policy Online", destination: privacyURL)
+                }
+            }
+        }
+        .navigationTitle("Privacy")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct SupportView: View {
+    var body: some View {
+        List {
+            Section("Photos") {
+                Text("If screenshots are missing, open iOS Settings → Apps → Later → Photos and allow the screenshots you want Later to use. Return to Later and pull down on the home list to refresh.")
+            }
+
+            Section("Sharing") {
+                Text("In a share sheet, choose Later and wait for the confirmation that the image was queued. Analysis continues in the background and can retry the next time you open Later.")
+            }
+
+            Section("Notifications") {
+                Text("Open iOS Settings → Notifications → Later to change notification access. Later avoids discovery reminders for completed, expired, duplicate, date-passed, and likely accidental items.")
+            }
+
+            Section("Data") {
+                Text("Later has no account or cloud library to delete. Delete individual items in Later, and use iOS Settings to revoke access or delete the app and its local data.")
+            }
+
+            Section("Diagnostic information") {
+                LabeledContent("Version", value: appVersion)
+                LabeledContent("Build", value: buildNumber)
+            }
+
+            Section("Contact") {
+                if let supportURL = LaterExternalLinks.support {
+                    Link("Visit Support Website", destination: supportURL)
+                }
+                Link("Email Support", destination: URL(string: "mailto:dhairya.lalwani@icloud.com?subject=Later%20Support")!)
+            }
+        }
+        .navigationTitle("Support")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
+    }
+}
+
+private enum LaterExternalLinks {
+    static let privacy = url(for: "LaterPrivacyURL")
+    static let support = url(for: "LaterSupportURL")
+
+    private static func url(for key: String) -> URL? {
+        guard let value = Bundle.main.object(forInfoDictionaryKey: key) as? String else {
+            return nil
+        }
+        return URL(string: value)
     }
 }
 

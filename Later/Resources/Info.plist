@@ -25,10 +25,16 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LaterVisionBaseURL</key>
 	<string>$(LATER_VISION_BASE_URL)</string>
 	<key>LaterAnalysisToken</key>
 	<string>$(LATER_ANALYSIS_TOKEN)</string>
+	<key>LaterPrivacyURL</key>
+	<string>https://later-screenshots.dhairya911.chatgpt.site/privacy</string>
+	<key>LaterSupportURL</key>
+	<string>https://later-screenshots.dhairya911.chatgpt.site/support</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Later adds reminders you choose from saved screenshots.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>

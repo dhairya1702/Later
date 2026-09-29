@@ -6,6 +6,10 @@ enum ShareInboxConfiguration {
     static let appGroup = "group.com.dhairyalalwani.Later"
     static let pushTokenKey = "push.apnsDeviceToken"
     static let apnsEnvironmentKey = "push.apnsEnvironment"
+    static let installationIDKey = "security.installationID"
+    static let appAttestKeyIDKey = "security.appAttestKeyID"
+    static let sessionTokenKey = "security.sessionToken"
+    static let sessionExpirationKey = "security.sessionExpiration"
 }
 
 struct ShareInboxRecord: Codable, Identifiable {
